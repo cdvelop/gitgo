@@ -40,12 +40,9 @@ func (g *Git) Push(message, tag string) (string, error) {
 	}
 
 	// 2. Commit (only if there are changes)
-	committed, err := g.commit(message)
+	_, err := g.commit(message)
 	if err != nil {
 		return "", fmt.Errorf("git commit failed: %w", err)
-	}
-	if !committed {
-		summary = append(summary, "No changes to commit")
 	}
 
 	// 3. Determine tag (provided or generated)
