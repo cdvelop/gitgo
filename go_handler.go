@@ -51,7 +51,6 @@ func (g *Go) Push(message, tag string, skipTests, skipRace bool, searchPath stri
 	if err := g.verify(); err != nil {
 		return "", fmt.Errorf("go mod verify failed: %w", err)
 	}
-	summary = append(summary, "Verified go.mod")
 
 	// 2. Run tests (if not skipped)
 	if !skipTests {
@@ -91,7 +90,9 @@ func (g *Go) Push(message, tag string, skipTests, skipRace bool, searchPath stri
 		summary = append(summary, fmt.Sprintf("Warning: failed to update dependents: %v", err))
 		// Not fatal error
 	}
-	summary = append(summary, fmt.Sprintf("Updated %d dependent modules", updated))
+	if updated > 0 {
+		summary = append(summary, fmt.Sprintf("✅ Updated modules: %d", updated))
+	}
 
 	return strings.Join(summary, ", "), nil
 }

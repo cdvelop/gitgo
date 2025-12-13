@@ -38,16 +38,13 @@ func (g *Git) Push(message, tag string) (string, error) {
 	if err := g.add(); err != nil {
 		return "", fmt.Errorf("git add failed: %w", err)
 	}
-	summary = append(summary, "Files staged")
 
 	// 2. Commit (only if there are changes)
 	committed, err := g.commit(message)
 	if err != nil {
 		return "", fmt.Errorf("git commit failed: %w", err)
 	}
-	if committed {
-		summary = append(summary, "Committed")
-	} else {
+	if !committed {
 		summary = append(summary, "No changes to commit")
 	}
 
@@ -70,16 +67,16 @@ func (g *Git) Push(message, tag string) (string, error) {
 		// We will note it in summary.
 		summary = append(summary, fmt.Sprintf("Tag warning: %v", err))
 	} else if created {
-		summary = append(summary, fmt.Sprintf("Tag: %s", finalTag))
+		summary = append(summary, fmt.Sprintf("✅ Tag: %s", finalTag))
 	} else {
-		summary = append(summary, fmt.Sprintf("Tag: %s", finalTag))
+		summary = append(summary, fmt.Sprintf("✅ Tag: %s", finalTag))
 	}
 
 	// 5. Push commits and tag
 	if err := g.pushWithTags(finalTag); err != nil {
 		return "", fmt.Errorf("push failed: %w", err)
 	}
-	summary = append(summary, "Pushed to remote")
+	summary = append(summary, "✅ Pushed ok")
 
 	return strings.Join(summary, ", "), nil
 }

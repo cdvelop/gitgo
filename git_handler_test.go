@@ -145,7 +145,7 @@ func TestGitPush(t *testing.T) {
 		t.Fatalf("Push failed: %v", err)
 	}
 
-	if !strings.Contains(summary, "Pushed to remote") {
-		t.Errorf("Expected summary to contain 'Pushed to remote', got: %s", summary)
+	if !strings.Contains(summary, "Pushed ok") {
+		t.Errorf("Expected summary to contain 'Pushed ok', got: %s", summary)
 	}
 }
