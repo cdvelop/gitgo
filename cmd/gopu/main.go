@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cdvelop/gitgo"
+	"github.com/tinywasm/devflow"
 )
 
 func main() {
@@ -80,8 +80,8 @@ Workflow:
 	}
 
 	// Execute workflow
-	git := gitgo.NewGit()
-	goHandler := gitgo.NewGo(git)
+	git := devflow.NewGit()
+	goHandler := devflow.NewGo(git)
 
 	summary, err := goHandler.Push(
 		message,

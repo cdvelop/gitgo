@@ -1,4 +1,4 @@
-package gitgo
+package devflow
 
 import (
 	"bufio"
@@ -23,11 +23,12 @@ func NewGo(gitHandler *Git) *Go {
 
 // Push executes the complete workflow for Go projects
 // Parameters:
-//   message: Commit message
-//   tag: Optional tag
-//   skipTests: If true, skips tests
-//   skipRace: If true, skips race tests
-//   searchPath: Path to search for dependent modules (default: "..")
+//
+//	message: Commit message
+//	tag: Optional tag
+//	skipTests: If true, skips tests
+//	skipRace: If true, skips race tests
+//	searchPath: Path to search for dependent modules (default: "..")
 func (g *Go) Push(message, tag string, skipTests, skipRace bool, searchPath string) (string, error) {
 	// Default values
 	if message == "" {

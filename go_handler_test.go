@@ -1,4 +1,4 @@
-package gitgo
+package devflow
 
 import (
 	"os"
@@ -119,7 +119,7 @@ func TestHasDependency(t *testing.T) {
 
 go 1.20
 
-require github.com/cdvelop/gitgo v0.0.1
+require github.com/tinywasm/devflow v0.0.1
 `
 	os.WriteFile(gomodPath, []byte(content), 0644)
 
@@ -127,7 +127,7 @@ require github.com/cdvelop/gitgo v0.0.1
 	goHandler := NewGo(git)
 
 	// Should find the dependency
-	if !goHandler.hasDependency(gomodPath, "github.com/cdvelop/gitgo") {
+	if !goHandler.hasDependency(gomodPath, "github.com/tinywasm/devflow") {
 		t.Error("Expected to find dependency")
 	}
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cdvelop/gitgo"
+	"github.com/tinywasm/devflow"
 )
 
 func main() {
@@ -59,7 +59,7 @@ Workflow:
 	}
 
 	// Execute workflow
-	git := gitgo.NewGit()
+	git := devflow.NewGit()
 	summary, err := git.Push(message, tag)
 
 	if summary != "" {

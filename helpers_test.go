@@ -1,4 +1,4 @@
-package gitgo
+package devflow
 
 import (
 	"os"

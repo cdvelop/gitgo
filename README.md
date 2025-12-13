@@ -1,6 +1,6 @@
-# GitGo
+# DevFlow
 
-GitGo is a minimalist Go library and CLI toolset designed to automate Git workflows and Go module updates. It adheres to a zero-dependency policy, using only the Go standard library.
+DevFlow is a minimalist Go library and CLI toolset designed to automate Git workflows and Go module updates. It adheres to a zero-dependency policy, using only the Go standard library.
 
 ## Features
 
@@ -11,14 +11,14 @@ GitGo is a minimalist Go library and CLI toolset designed to automate Git workfl
 ## Installation
 
 ```bash
-go get github.com/cdvelop/gitgo
+go get github.com/tinywasm/devflow
 ```
 
 To install the CLI tools:
 
 ```bash
-go install github.com/cdvelop/gitgo/cmd/push@latest
-go install github.com/cdvelop/gitgo/cmd/gopu@latest
+go install github.com/tinywasm/devflow/cmd/push@latest
+go install github.com/tinywasm/devflow/cmd/gopu@latest
 ```
 
 ## Usage
@@ -39,7 +39,7 @@ gopu "commit message" [tag]
 
 ### Library
 
-GitGo provides `Git` and `Go` handlers for programmatic usage.
+DevFlow provides `Git` and `Go` handlers for programmatic usage.
 
 ```go
 package main
@@ -48,12 +48,12 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/cdvelop/gitgo"
+	"github.com/tinywasm/devflow"
 )
 
 func main() {
 	// Initialize Git handler
-	git := gitgo.NewGit()
+	git := devflow.NewGit()
 
 	// Execute Git Push Workflow
 	summary, err := git.Push("feat: new feature", "v1.0.0")
@@ -63,7 +63,7 @@ func main() {
 	fmt.Println(summary)
 
 	// Initialize Go handler (depends on Git handler)
-	goHandler := gitgo.NewGo(git)
+	goHandler := devflow.NewGo(git)
 
 	// Execute Go Project Update Workflow
 	// (Verifies mod, runs tests, pushes, updates dependents)
