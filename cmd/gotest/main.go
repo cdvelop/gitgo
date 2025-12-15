@@ -18,8 +18,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	git := devflow.NewGit()
-	goHandler := devflow.NewGo(git)
+	git, err := devflow.NewGit()
+	if err != nil {
+		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
+	goHandler, err := devflow.NewGo(git)
+	if err != nil {
+		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
 
 	// Set logging if verbose
 	if *verboseFlag {

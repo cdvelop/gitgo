@@ -3,6 +3,7 @@ package devflow
 import (
 	"bufio"
 	"fmt"
+	"os/exec"
 	"os"
 	"path/filepath"
 	"strings"
@@ -151,4 +152,29 @@ func (g *Go) updateModule(moduleDir, dependency, version string) error {
 	}
 
 	return nil
+}
+
+// ModInit initializes a new go module
+func (g *Go) ModInit(modulePath, targetDir string) error {
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	defer os.Chdir(originalDir)
+
+	if err := os.Chdir(targetDir); err != nil {
+		return err
+	}
+
+	_, err = RunCommand("go", "mod", "init", modulePath)
+	return err
+}
+
+// DetectGoExecutable returns the path to the go executable
+func (g *Go) DetectGoExecutable() (string, error) {
+	path, err := exec.LookPath("go")
+	if err != nil {
+		return "", err
+	}
+	return path, nil
 }

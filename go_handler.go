@@ -12,13 +12,18 @@ type Go struct {
 	backup *DevBackup
 }
 
-// NewGo creates a new Go handler
-func NewGo(gitHandler *Git) *Go {
+// NewGo creates a new Go handler and verifies Go installation
+func NewGo(gitHandler *Git) (*Go, error) {
+	// Verify go installation
+	if _, err := RunCommandSilent("go", "version"); err != nil {
+		return nil, fmt.Errorf("go is not installed or not in PATH: %w", err)
+	}
+
 	return &Go{
 		git:    gitHandler,
 		backup: NewDevBackup(),
 		log:    func(...any) {}, // default no-op
-	}
+	}, nil
 }
 
 // SetLog sets the logger function
