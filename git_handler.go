@@ -61,17 +61,23 @@ func (g *Git) Push(message, tag string) (string, error) {
 		finalTag = generatedTag
 	}
 
-	// 4. Create tag
+	// 4. Create tag - if exists, generate next available
 	created, err := g.createTag(finalTag)
 	if err != nil {
-		// If it already exists, not fatal error (can be re-run) but we should report it
-		// Or maybe we should fail if explicit tag is provided but exists?
-		// Existing logic: log warning.
-		// We will note it in summary.
-		summary = append(summary, fmt.Sprintf("Tag warning: %v", err))
-	} else if created {
-		summary = append(summary, fmt.Sprintf("✅ Tag: %s", finalTag))
-	} else {
+		// Tag already exists - generate next available
+		g.log("Tag", finalTag, "already exists, generating next available")
+		nextTag, err := g.GenerateNextTag()
+		if err != nil {
+			return "", fmt.Errorf("failed to generate next tag: %w", err)
+		}
+		finalTag = nextTag
+		created, err = g.createTag(finalTag)
+		if err != nil {
+			return "", fmt.Errorf("failed to create tag: %w", err)
+		}
+	}
+
+	if created {
 		summary = append(summary, fmt.Sprintf("✅ Tag: %s", finalTag))
 	}
 
