@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/cdvelop/badges"
-	"github.com/cdvelop/mdgo"
 )
 
 func getGoVersion() string {
@@ -113,8 +112,8 @@ func updateBadges(readmeFile, licenseType, goVer, testStatus, coveragePercent, r
 		content := sectionArgs[2]
 		readmeFile := sectionArgs[3]
 
-		// Use mdgo to update
-		m := mdgo.New(".", ".", func(name string, data []byte) error {
+		// Use local MarkDown handler to update
+		m := NewMarkDown(".", ".", func(name string, data []byte) error {
 			return os.WriteFile(name, data, 0644)
 		})
 		m.InputPath(readmeFile, func(name string) ([]byte, error) {
@@ -122,7 +121,7 @@ func updateBadges(readmeFile, licenseType, goVer, testStatus, coveragePercent, r
 		})
 
 		if err := m.UpdateSection(sectionID, content); err != nil {
-			return fmt.Errorf("error updating README with mdgo: %w", err)
+			return fmt.Errorf("error updating README with markdown handler: %w", err)
 		}
 
 		if !quiet {
