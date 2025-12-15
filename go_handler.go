@@ -7,15 +7,17 @@ import (
 
 // Go handler for Go operations
 type Go struct {
-	git *Git
-	log func(...any)
+	git    *Git
+	log    func(...any)
+	backup *DevBackup
 }
 
 // NewGo creates a new Go handler
 func NewGo(gitHandler *Git) *Go {
 	return &Go{
-		git: gitHandler,
-		log: func(...any) {}, // default no-op
+		git:    gitHandler,
+		backup: NewDevBackup(),
+		log:    func(...any) {}, // default no-op
 	}
 }
 
@@ -89,6 +91,13 @@ func (g *Go) Push(message, tag string, skipTests, skipRace bool, searchPath stri
 	}
 	if updated > 0 {
 		summary = append(summary, fmt.Sprintf("✅ Updated modules: %d", updated))
+	}
+
+	// 7. Execute backup (asynchronous, non-blocking)
+	if backupMsg, err := g.backup.Run(); err != nil {
+		summary = append(summary, fmt.Sprintf("❌ backup failed to start: %v", err))
+	} else if backupMsg != "" {
+		summary = append(summary, backupMsg)
 	}
 
 	return strings.Join(summary, ", "), nil

@@ -10,6 +10,7 @@ Automated Git and Go workflows with minimal output.
 - **[gotest](docs/GOTEST.md)** - Run tests, vet, race detection, and coverage
 - **[push](docs/PUSH.md)** - Git add, commit, tag, and push
 - **[gopush](docs/GOPUSH.md)** - Complete workflow: test + push + update dependents
+- **[devbackup](docs/DEVBACKUP.md)** - Configure and execute automated backups
 
 ## Installation
 
@@ -17,6 +18,7 @@ Automated Git and Go workflows with minimal output.
 go install github.com/tinywasm/devflow/cmd/gotest@latest
 go install github.com/tinywasm/devflow/cmd/push@latest
 go install github.com/tinywasm/devflow/cmd/gopush@latest
+go install github.com/tinywasm/devflow/cmd/devbackup@latest
 ```
 
 ## Quick Start

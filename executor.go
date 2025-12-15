@@ -3,6 +3,7 @@ package devflow
 import (
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strings"
 )
 
@@ -27,4 +28,16 @@ func RunCommand(name string, args ...string) (string, error) {
 // The previous implementation was identical except for logging.
 func RunCommandSilent(name string, args ...string) (string, error) {
 	return RunCommand(name, args...)
+}
+
+// RunShellCommand executes a shell command in a cross-platform way
+// On Windows: uses cmd.exe /C
+// On Unix (Linux/macOS): uses sh -c
+func RunShellCommand(command string) (string, error) {
+	switch runtime.GOOS {
+	case "windows":
+		return RunCommand("cmd.exe", "/C", command)
+	default: // linux, darwin, etc.
+		return RunCommand("sh", "-c", command)
+	}
 }
