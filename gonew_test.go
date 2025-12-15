@@ -3,6 +3,7 @@ package devflow
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -40,9 +41,9 @@ func TestProjectTemplates(t *testing.T) {
 	}
 	// Check content contains owner
 	content, _ = os.ReadFile(filepath.Join(tmpDir, "LICENSE"))
-	// Should contain "Copyright (c) <year> Owner"
-	// We can check just "Owner"
-	// ...
+	if !strings.Contains(string(content), "Owner") {
+		t.Errorf("GenerateLicense content should contain 'Owner', got:\n%s", string(content))
+	}
 
 	// Test GenerateHandlerFile
 	if err := GenerateHandlerFile("my-repo", tmpDir); err != nil {
