@@ -38,14 +38,15 @@ devbackup -s '"/c/Program Files/FreeFileSync/FreeFileSync.exe" "/c/Users/$(whoam
 
 ## Configuration
 
-The backup command is stored in `~/.bashrc` with markers:
+The backup command is stored in `~/.bashrc` with markers and escaped quotes:
 
 ```bash
 # START_DEVFLOW:DEV_BACKUP
-export DEV_BACKUP="freefilesync config.ffs_batch"
+export DEV_BACKUP="$(command -v FreeFileSync || command -v freefilesync) \"$HOME/Own/Sync/SyncSettings.ffs_batch\""
 # END_DEVFLOW:DEV_BACKUP
 ```
 
+Internal quotes are automatically escaped when saving and unescaped when reading.
 Variable is set immediately in current session and persists in `.bashrc` for future sessions.
 
 ## Integration

@@ -36,7 +36,9 @@ func (b *Bashrc) Set(key, value string) error {
 	}
 
 	sectionID := key
-	content := fmt.Sprintf("export %s=\"%s\"", key, value)
+	// Escape internal quotes for proper bash syntax
+	escapedValue := strings.ReplaceAll(value, `"`, `\"`)
+	content := fmt.Sprintf("export %s=\"%s\"", key, escapedValue)
 
 	return b.updateSection(sectionID, content)
 }
@@ -225,8 +227,9 @@ func (b *Bashrc) extractValue(exportLine, key string) (string, error) {
 	// Extract value part
 	value := strings.TrimPrefix(line, prefix)
 
-	// Remove quotes if present
+	// Remove outer quotes and unescape internal quotes
 	value = strings.Trim(value, "\"")
+	value = strings.ReplaceAll(value, `\"`, `"`)
 
 	return value, nil
 }
