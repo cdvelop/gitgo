@@ -11,6 +11,7 @@ import (
 func main() {
 	// Subcommands
 	addRemoteCmd := flag.NewFlagSet("add-remote", flag.ExitOnError)
+	addRemoteOwner := addRemoteCmd.String("owner", "", "GitHub owner/organization (default: auto-detected)")
 	addRemoteVisibility := addRemoteCmd.String("visibility", "public", "Visibility (public/private)")
 
 	// Main command flags
@@ -21,13 +22,14 @@ func main() {
 		switch os.Args[1] {
 		case "add-remote":
 			addRemoteCmd.Parse(os.Args[2:])
-			handleAddRemote(addRemoteCmd.Args(), *addRemoteVisibility)
+			handleAddRemote(addRemoteCmd.Args(), *addRemoteVisibility, *addRemoteOwner)
 			return
 		}
 	}
 
 	// Main command handling (gonew <repo-name> <description>)
 	fs := flag.NewFlagSet("gonew", flag.ExitOnError)
+	ownerFlag := fs.String("owner", "", "GitHub owner/organization (default: auto-detected from gh or git)")
 	visibilityFlag := fs.String("visibility", "public", "Visibility (public/private)")
 	localOnlyFlag := fs.Bool("local-only", false, "Skip remote creation entirely")
 	licenseFlag := fs.String("license", "MIT", "License type (default: MIT)")
@@ -40,15 +42,17 @@ Usage:
     gonew add-remote <project-path> [flags]
 
 Flags:
-    --visibility  public|private (default: public)
-    --local-only  Skip remote creation
-    --license     License type (default: MIT)
+    -owner       GitHub owner/organization (default: auto-detected)
+    -visibility  public|private (default: public)
+    -local-only  Skip remote creation
+    -license     License type (default: MIT)
 
 Examples:
     gonew my-project "A sample Go project"
-    gonew my-lib "Go library" --visibility=private
-    gonew ~/Dev/my-tool "CLI tool" --local-only
-    gonew add-remote ./my-project --visibility=public
+    gonew my-lib "Go library" -owner=cdvelop
+    gonew my-tool "CLI tool" -owner=veltylabs -visibility=private
+    gonew ~/Dev/my-tool "CLI tool" -local-only
+    gonew add-remote ./my-project -owner=tinywasm -visibility=public
 `)
 	}
 
@@ -83,8 +87,9 @@ Examples:
 			reorderedArgs = append(reorderedArgs, arg)
 			// Check if this flag takes an argument
 			// Our flags: -visibility (takes arg), -local-only (bool), -license (takes arg)
-			if arg == "--visibility" || arg == "-visibility" ||
-			   arg == "--license" || arg == "-license" {
+			if arg == "--owner" || arg == "-owner" ||
+				arg == "--visibility" || arg == "-visibility" ||
+				arg == "--license" || arg == "-license" {
 				if i+1 < len(args) {
 					reorderedArgs = append(reorderedArgs, args[i+1])
 					skipNext = true
@@ -157,6 +162,7 @@ Examples:
 	opts := devflow.NewProjectOptions{
 		Name:        repoName,
 		Description: description,
+		Owner:       *ownerFlag,
 		Visibility:  *visibilityFlag,
 		LocalOnly:   *localOnlyFlag,
 		License:     *licenseFlag,
@@ -171,7 +177,7 @@ Examples:
 	fmt.Println(summary)
 }
 
-func handleAddRemote(args []string, visibility string) {
+func handleAddRemote(args []string, visibility, owner string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Usage: gonew add-remote <project-path> [flags]\n")
 		os.Exit(1)
@@ -199,7 +205,7 @@ func handleAddRemote(args []string, visibility string) {
 
 	orchestrator := devflow.NewGoNew(git, github, goHandler)
 
-	summary, err := orchestrator.AddRemote(projectPath, visibility)
+	summary, err := orchestrator.AddRemote(projectPath, visibility, owner)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "❌ Failed: %v\n", err)
 		os.Exit(1)

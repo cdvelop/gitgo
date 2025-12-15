@@ -25,9 +25,10 @@ gonew add-remote <project-path> [flags]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--visibility` | Repository visibility (`public` or `private`) | `public` |
-| `--local-only` | Skip remote repository creation | `false` |
-| `--license` | License type | `MIT` |
+| `-owner` | GitHub owner/organization | Auto-detected from `gh` or git config |
+| `-visibility` | Repository visibility (`public` or `private`) | `public` |
+| `-local-only` | Skip remote repository creation | `false` |
+| `-license` | License type | `MIT` |
 
 ## Examples
 
@@ -36,24 +37,33 @@ gonew add-remote <project-path> [flags]
 gonew my-project "A sample Go project"
 ```
 
+### Create project with specific owner/organization
+```bash
+gonew my-lib "Go library" -owner=cdvelop
+gonew my-tool "CLI tool" -owner=veltylabs -visibility=private
+gonew webapp "Web app" -owner=tinywasm
+```
+
 ### Create a private library
 ```bash
-gonew my-lib "Go library" --visibility=private
+gonew my-lib "Go library" -visibility=private
 ```
 
 ### Create local-only project (no GitHub)
 ```bash
-gonew my-tool "CLI tool" --local-only
+gonew my-tool "CLI tool" -local-only
 ```
 
 ### Add remote to existing project
 ```bash
-gonew add-remote ./my-project --visibility=public
+gonew add-remote ./my-project -visibility=public
+gonew add-remote ./my-project -owner=tinywasm -visibility=private
 ```
 
 ## Features
 
 - **Strict Validation**: Enforces valid repository names and descriptions.
-- **Smart Defaults**: Auto-detects git user, generates MIT license.
+- **Smart Defaults**: Auto-detects git user and GitHub owner, generates MIT license.
+- **Multi-Account Support**: Use `--owner` to specify different GitHub accounts/organizations (cdvelop, veltylabs, tinywasm, etc.).
 - **Graceful Fallback**: Falls back to local-only mode if GitHub is unavailable.
 - **Project Structure**: Sets up `main` branch, `.gitignore` for Go, and initial version `v0.0.1`.

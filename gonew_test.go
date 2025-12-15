@@ -156,3 +156,58 @@ func TestGoNewCreateLocalOnly(t *testing.T) {
 		t.Error(".git directory not created")
 	}
 }
+
+func TestGoNewWithCustomOwner(t *testing.T) {
+	// Setup
+	tmpDir := t.TempDir()
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	git, err := NewGit()
+	if err != nil {
+		t.Skip("git not installed")
+	}
+
+	// Configure git user
+	os.Setenv("HOME", tmpDir)
+	gitConfig := `[user]
+	name = TestUser
+	email = test@example.com
+`
+	os.WriteFile(filepath.Join(tmpDir, ".gitconfig"), []byte(gitConfig), 0644)
+
+	goHandler, _ := NewGo(git)
+	gn := NewGoNew(git, nil, goHandler)
+
+	// Test with custom owner
+	opts := NewProjectOptions{
+		Name:        "test-project",
+		Description: "A test project",
+		Owner:       "cdvelop",
+		LocalOnly:   true,
+		Directory:   filepath.Join(tmpDir, "test-project"),
+	}
+
+	summary, err := gn.Create(opts)
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	if !strings.Contains(summary, "test-project") {
+		t.Error("Summary should contain project name")
+	}
+
+	// Verify go.mod contains correct module path with custom owner
+	targetDir := opts.Directory
+	goModContent, err := os.ReadFile(filepath.Join(targetDir, "go.mod"))
+	if err != nil {
+		t.Fatalf("Failed to read go.mod: %v", err)
+	}
+
+	expectedModulePath := "module github.com/cdvelop/test-project"
+	if !strings.Contains(string(goModContent), expectedModulePath) {
+		t.Errorf("go.mod should contain '%s', got:\n%s", expectedModulePath, string(goModContent))
+	}
+}

@@ -31,10 +31,13 @@ go install github.com/tinywasm/devflow/cmd/badges@latest
 # Test your project
 gotest
 
-# Push changes + backup
+# Create new project with specific owner
+gonew myapp "My application" -owner=cdvelop
+
+# Push changes 
 push "fix: bug correction"
 
-# Test + push + update dependents 
+# Test + push + update dependents + backup
 gopush "feat: new feature"
 
 # Generate badges

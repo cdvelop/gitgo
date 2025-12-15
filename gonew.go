@@ -19,6 +19,7 @@ type GoNew struct {
 type NewProjectOptions struct {
 	Name        string // Required, must be valid (alphanumeric, dash, underscore only)
 	Description string // Required, max 350 chars
+	Owner       string // GitHub owner/organization (default: detected from gh or git config)
 	Visibility  string // "public" or "private" (default: "public")
 	Directory   string // Supports ~/path, ./path, /abs/path (default: ./{Name})
 	LocalOnly   bool   // If true, skip remote creation
@@ -93,11 +94,33 @@ func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 		return "", fmt.Errorf("git user.email not configured. Run: git config --global user.email \"email@example.com\"")
 	}
 
-	// 3. Create remote (if not local-only)
+	// 3. Determine owner
+	var ghUser string
+	if opts.Owner != "" {
+		// Use specified owner
+		ghUser = opts.Owner
+	} else if gn.github != nil {
+		// Auto-detect from gh CLI
+		var err error
+		ghUser, err = gn.github.GetCurrentUser()
+		if err != nil && !opts.LocalOnly {
+			// Fallback to git config if gh fails
+			gitUser := strings.ReplaceAll(strings.ToLower(userName), " ", "")
+			ghUser = gitUser
+			gn.log("Warning: could not get GitHub user, using git user:", gitUser)
+		}
+	} else {
+		// Fallback to git config
+		ghUser = strings.ReplaceAll(strings.ToLower(userName), " ", "")
+	}
+
+	// 4. Create remote (if not local-only)
 	if !opts.LocalOnly {
 		// Check if repo exists on GitHub
-		// We need username first
-		ghUser, err := gn.github.GetCurrentUser()
+		var err error
+		if ghUser == "" {
+			ghUser, err = gn.github.GetCurrentUser()
+		}
 		if err != nil {
 			// Fallback to local only
 			gn.log("GitHub unavailable:", err)
@@ -163,22 +186,7 @@ func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 	}
 
 	// Go Mod Init
-	// Calculate module path
-	// Default: github.com/{username}/{repo-name}
-	// We use git config user.name if gh user unavailable? No, usually module path uses github handle.
-	// If local only, we might not have gh user.
-	// Spec: `module github.com/{username}/{repo-name}`
-	var ghUser string
-	if gn.github != nil {
-		ghUser, err = gn.github.GetCurrentUser()
-	} else {
-		err = fmt.Errorf("GitHub handler is nil")
-	}
-
-	if err != nil {
-		// Fallback to git config name or just placeholder
-		ghUser = strings.ReplaceAll(strings.ToLower(userName), " ", "")
-	}
+	// Use previously determined ghUser
 	modulePath := fmt.Sprintf("github.com/%s/%s", ghUser, opts.Name)
 
 	if err := gn.goH.ModInit(modulePath, targetDir); err != nil {
@@ -223,7 +231,7 @@ func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 }
 
 // AddRemote adds GitHub remote to existing local project
-func (gn *GoNew) AddRemote(projectPath, visibility string) (string, error) {
+func (gn *GoNew) AddRemote(projectPath, visibility, owner string) (string, error) {
 	// ... Implement AddRemote logic ...
 	// For now, let's implement the basic structure based on spec.
 
@@ -288,10 +296,16 @@ func (gn *GoNew) AddRemote(projectPath, visibility string) (string, error) {
 		return fmt.Sprintf("Remote 'origin' already configured for %s", repoName), nil
 	}
 
-	// Check if repo exists on GitHub
-	ghUser, err := gn.github.GetCurrentUser()
-	if err != nil {
-		return "", fmt.Errorf("GitHub unavailable: %w", err)
+	// Determine owner
+	var ghUser string
+	if owner != "" {
+		ghUser = owner
+	} else {
+		var err error
+		ghUser, err = gn.github.GetCurrentUser()
+		if err != nil {
+			return "", fmt.Errorf("GitHub unavailable: %w", err)
+		}
 	}
 
 	exists, err := gn.github.RepoExists(ghUser, repoName)
