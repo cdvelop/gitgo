@@ -14,8 +14,8 @@ func TestGoGetModulePath(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
-	goHandler := NewGo(git)
+	git, _ := NewGit()
+	goHandler, _ := NewGo(git)
 
 	path, err := goHandler.getModulePath()
 	if err != nil {
@@ -34,8 +34,8 @@ func TestGoModVerify(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
-	goHandler := NewGo(git)
+	git, _ := NewGit()
+	goHandler, _ := NewGo(git)
 
 	err := goHandler.verify()
 	if err != nil {
@@ -58,8 +58,8 @@ func TestExample(t *testing.T) {}
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
-	goHandler := NewGo(git)
+	git, _ := NewGit()
+	goHandler, _ := NewGo(git)
 
 	_, err := goHandler.Test(false) // quiet mode
 	if err != nil {
@@ -94,8 +94,8 @@ require github.com/test/main v0.0.1
 	os.MkdirAll(indepDir, 0755)
 	os.WriteFile(indepDir+"/go.mod", []byte("module github.com/test/indep\n\ngo 1.20\n"), 0644)
 
-	git := NewGit()
-	goHandler := NewGo(git)
+	git, _ := NewGit()
+	goHandler, _ := NewGo(git)
 
 	// Search dependents
 	dependents, err := goHandler.findDependentModules("github.com/test/main", tmpDir)
@@ -124,8 +124,8 @@ require github.com/tinywasm/devflow v0.0.1
 `
 	os.WriteFile(gomodPath, []byte(content), 0644)
 
-	git := NewGit()
-	goHandler := NewGo(git)
+	git, _ := NewGit()
+	goHandler, _ := NewGo(git)
 
 	// Should find the dependency
 	if !goHandler.hasDependency(gomodPath, "github.com/tinywasm/devflow") {
@@ -158,8 +158,8 @@ func TestGoPush(t *testing.T) {
 	exec.Command("git", "config", "user.email", "test@test.com").Run()
 	exec.Command("git", "remote", "add", "origin", remoteDir).Run()
 
-	git := NewGit()
-	goHandler := NewGo(git)
+	git, _ := NewGit()
+	goHandler, _ := NewGo(git)
 
 	// Create test file so tests pass (although we skip them here for speed/reliability in this test)
 	// But let's run them to verify full flow

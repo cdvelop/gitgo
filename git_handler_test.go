@@ -15,7 +15,7 @@ func TestGitHasChanges(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
+	git, _ := NewGit()
 
 	// Create file
 	os.WriteFile("test.txt", []byte("test"), 0644)
@@ -42,7 +42,7 @@ func TestGitGenerateNextTag(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
+	git, _ := NewGit()
 
 	// Initial commit
 	os.WriteFile("test.txt", []byte("test"), 0644)
@@ -81,7 +81,7 @@ func TestGitCommit(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
+	git, _ := NewGit()
 
 	// Without changes should not fail
 	_, err := git.commit("test")
@@ -137,7 +137,7 @@ func TestGitPush(t *testing.T) {
 
 	exec.Command("git", "remote", "add", "origin", remoteDir).Run()
 
-	git := NewGit()
+	git, _ := NewGit()
 	os.WriteFile("README.md", []byte("# test"), 0644)
 
 	summary, err := git.Push("initial commit", "v0.0.1")

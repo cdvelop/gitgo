@@ -7,6 +7,7 @@ Automated Git and Go workflows with minimal output.
 
 ## Commands
 
+- **[gonew](docs/GONEW.md)** - Initialize new Go projects
 - **[gotest](docs/GOTEST.md)** - Run tests, vet, race detection, and coverage
 - **[push](docs/PUSH.md)** - Git add, commit, tag, and push
 - **[gopush](docs/GOPUSH.md)** - Complete workflow: test + push + update dependents
@@ -15,6 +16,7 @@ Automated Git and Go workflows with minimal output.
 ## Installation
 
 ```bash
+go install github.com/tinywasm/devflow/cmd/gonew@latest
 go install github.com/tinywasm/devflow/cmd/gotest@latest
 go install github.com/tinywasm/devflow/cmd/push@latest
 go install github.com/tinywasm/devflow/cmd/gopush@latest

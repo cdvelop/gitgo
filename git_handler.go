@@ -2,6 +2,7 @@ package devflow
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -12,11 +13,16 @@ type Git struct {
 	log func(...any)
 }
 
-// NewGit creates a new Git handler
-func NewGit() *Git {
+// NewGit creates a new Git handler and verifies git is available
+func NewGit() (*Git, error) {
+	// Verify git installation
+	if _, err := RunCommandSilent("git", "--version"); err != nil {
+		return nil, fmt.Errorf("git is not installed or not in PATH: %w", err)
+	}
+
 	return &Git{
 		log: func(...any) {}, // default no-op
-	}
+	}, nil
 }
 
 // SetLog sets the logger function
@@ -255,5 +261,63 @@ func (g *Git) pushWithTags(tag string) error {
 		return err
 	}
 
+	return nil
+}
+
+// GetConfigUserName gets the git user.name
+func (g *Git) GetConfigUserName() (string, error) {
+	name, err := RunCommandSilent("git", "config", "user.name")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(name), nil
+}
+
+// GetConfigUserEmail gets the git user.email
+func (g *Git) GetConfigUserEmail() (string, error) {
+	email, err := RunCommandSilent("git", "config", "user.email")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(email), nil
+}
+
+// SetUserConfig sets git user name and email
+func (g *Git) SetUserConfig(name, email string) error {
+	if _, err := RunCommand("git", "config", "user.name", name); err != nil {
+		return err
+	}
+	if _, err := RunCommand("git", "config", "user.email", email); err != nil {
+		return err
+	}
+	return nil
+}
+
+// InitRepo initializes a new git repository
+func (g *Git) InitRepo(dir string) error {
+	if _, err := RunCommand("git", "init", dir); err != nil {
+		return err
+	}
+
+	// Set main branch
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	defer os.Chdir(cwd)
+
+	if err := os.Chdir(dir); err != nil {
+		return err
+	}
+
+	if _, err := RunCommand("git", "branch", "-M", "main"); err != nil {
+		// On fresh init with no commits, this might fail, but git init usually sets up a default branch.
+		// Newer git versions use init.defaultBranch.
+		// If it fails, it might mean there are no commits yet so HEAD doesn't point anywhere meaningful.
+		// We can ignore or handle.
+		// Actually "git branch -M main" works even with no commits in recent git.
+		// Let's assume it works or is not critical if we are on a version that defaults to master.
+		return err
+	}
 	return nil
 }

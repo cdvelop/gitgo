@@ -5,8 +5,8 @@ import (
 )
 
 func TestGo_SetLog(t *testing.T) {
-	git := NewGit()
-	g := NewGo(git)
+	git, _ := NewGit()
+	g, _ := NewGo(git)
 
 	// Test that SetLog works
 	called := false
@@ -23,8 +23,8 @@ func TestGo_SetLog(t *testing.T) {
 }
 
 func TestGo_NewGo(t *testing.T) {
-	git := NewGit()
-	g := NewGo(git)
+	git, _ := NewGit()
+	g, _ := NewGo(git)
 
 	if g == nil {
 		t.Fatal("Expected NewGo to return non-nil")

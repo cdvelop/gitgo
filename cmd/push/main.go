@@ -59,7 +59,12 @@ Workflow:
 	}
 
 	// Execute workflow
-	git := devflow.NewGit()
+	git, err := devflow.NewGit()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
 	summary, err := git.Push(message, tag)
 
 	if summary != "" {

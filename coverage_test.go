@@ -14,7 +14,7 @@ func TestGitGenerateNextTagErrors(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
+	git, _ := NewGit()
 
 	// Test with invalid tag format
 	// Force a tag with invalid format
@@ -51,7 +51,7 @@ func TestGitPushWithUpstreamLogic(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
+	git, _ := NewGit()
 
 	// Add remote
 	exec.Command("git", "remote", "add", "origin", remoteDir).Run()
@@ -97,7 +97,7 @@ func TestGitCreateTagExists(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
+	git, _ := NewGit()
 
 	// Initial commit needed for tagging
 	exec.Command("git", "commit", "--allow-empty", "-m", "init").Run()
@@ -139,8 +139,8 @@ func TestGoPushFlags(t *testing.T) {
 	exec.Command("git", "init", "--bare", remoteDir).Run()
 	exec.Command("git", "remote", "add", "origin", remoteDir).Run()
 
-	git := NewGit()
-	goHandler := NewGo(git)
+	git, _ := NewGit()
+	goHandler, _ := NewGo(git)
 
 	// 1. Skip Tests and Skip Race
 	summary, err := goHandler.Push("msg", "v0.0.1", true, true, "")
@@ -181,8 +181,8 @@ func TestGoUpdateDependentsNoSearchPath(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
-	goHandler := NewGo(git)
+	git, _ := NewGit()
+	goHandler, _ := NewGo(git)
 
 	// It should not fail, just find nothing
 	updated, err := goHandler.updateDependents("github.com/test/repo", "v0.0.1", "")
@@ -202,8 +202,8 @@ func TestGoFailures(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
-	goHandler := NewGo(git)
+	git, _ := NewGit()
+	goHandler, _ := NewGo(git)
 
 	// Test Verify Failure (delete go.mod)
 	os.Remove("go.mod")
@@ -231,8 +231,8 @@ func TestGoUpdateModuleFail(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
-	goHandler := NewGo(git)
+	git, _ := NewGit()
+	goHandler, _ := NewGo(git)
 
 	// Try to update a module in current dir (which is not a valid dependent in this context, or just fails `go get`)
 	// We try to run updateModule on the current directory for a non-existent dependency
@@ -251,8 +251,8 @@ func TestGoPushFailTest(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
-	goHandler := NewGo(git)
+	git, _ := NewGit()
+	goHandler, _ := NewGo(git)
 
 	// Create failing test
 	testContent := `package main
@@ -286,7 +286,7 @@ func TestGitAddError(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
+	git, _ := NewGit()
 
 	// Corrupt .git/index
 	os.WriteFile(".git/index", []byte("garbage"), 0000)
@@ -305,7 +305,7 @@ func TestGitPushCommitFailure(t *testing.T) {
 	os.Chdir(dir)
 	defer os.Chdir(oldDir)
 
-	git := NewGit()
+	git, _ := NewGit()
 
 	// Stage file
 	os.WriteFile("test.txt", []byte("content"), 0644)
