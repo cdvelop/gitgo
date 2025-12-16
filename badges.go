@@ -102,7 +102,7 @@ func NewBadges(args ...string) *Badges {
 		// store error in handler containing the same user-facing messages
 		// used by the original bash implementation so tests depending on
 		// exact substrings continue to pass.
-		h.err = fmt.Errorf("No badges specified\nUsage: badges.sh \"label:value:color\" \"label:value:color\" ...")
+		h.err = fmt.Errorf("no badges specified, usage: badges.sh \"label:value:color\" \"label:value:color\"")
 		return h
 	}
 
