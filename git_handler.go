@@ -61,24 +61,29 @@ func (g *Git) Push(message, tag string) (string, error) {
 		finalTag = generatedTag
 	}
 
-	// 4. Create tag - if exists, generate next available
-	created, err := g.createTag(finalTag)
-	if err != nil {
-		// Tag already exists - generate next available
-		g.log("Tag", finalTag, "already exists, generating next available")
-		nextTag, err := g.GenerateNextTag()
+	// 4. Create tag - if exists, keep incrementing until we find available one
+	maxAttempts := 100 // Prevent infinite loop
+	attempt := 0
+	for attempt < maxAttempts {
+		created, err := g.createTag(finalTag)
+		if err == nil && created {
+			// Success
+			summary = append(summary, fmt.Sprintf("✅ Tag: %s", finalTag))
+			break
+		}
+
+		// Tag exists, increment from current finalTag
+		g.log("Tag", finalTag, "already exists, trying next")
+		nextTag, err := g.incrementTag(finalTag)
 		if err != nil {
-			return "", fmt.Errorf("failed to generate next tag: %w", err)
+			return "", fmt.Errorf("failed to increment tag: %w", err)
 		}
 		finalTag = nextTag
-		created, err = g.createTag(finalTag)
-		if err != nil {
-			return "", fmt.Errorf("failed to create tag: %w", err)
-		}
+		attempt++
 	}
 
-	if created {
-		summary = append(summary, fmt.Sprintf("✅ Tag: %s", finalTag))
+	if attempt >= maxAttempts {
+		return "", fmt.Errorf("could not find available tag after %d attempts", maxAttempts)
 	}
 
 	// 5. Push commits and tag
@@ -180,6 +185,29 @@ func (g *Git) GenerateNextTag() (string, error) {
 	parts := strings.Split(latestTag, ".")
 	if len(parts) < 3 {
 		return "", fmt.Errorf("invalid tag format: %s", latestTag)
+	}
+
+	lastNumStr := parts[len(parts)-1]
+	lastNum, err := strconv.Atoi(lastNumStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid tag number: %s", lastNumStr)
+	}
+
+	parts[len(parts)-1] = strconv.Itoa(lastNum + 1)
+	newTag := strings.Join(parts, ".")
+
+	return newTag, nil
+}
+
+// incrementTag increments a specific tag (e.g., v0.0.12 -> v0.0.13)
+func (g *Git) incrementTag(tag string) (string, error) {
+	if tag == "" {
+		return "v0.0.1", nil
+	}
+
+	parts := strings.Split(tag, ".")
+	if len(parts) < 3 {
+		return "", fmt.Errorf("invalid tag format: %s", tag)
 	}
 
 	lastNumStr := parts[len(parts)-1]
