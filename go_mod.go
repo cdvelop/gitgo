@@ -3,8 +3,8 @@ package devflow
 import (
 	"bufio"
 	"fmt"
-	"os/exec"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -45,7 +45,7 @@ func (g *Go) verify() error {
 }
 
 // updateDependents updates modules that depend on the current one
-func (g *Go) updateDependents(modulePath, version, searchPath string) (int, error) {
+func (g *Go) updateDependents(modulePath, version, searchPath string) ([]string, error) {
 	if searchPath == "" {
 		searchPath = ".."
 	}
@@ -53,26 +53,25 @@ func (g *Go) updateDependents(modulePath, version, searchPath string) (int, erro
 	// Find modules that depend on current
 	dependents, err := g.findDependentModules(modulePath, searchPath)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	if len(dependents) == 0 {
-		return 0, nil
+		return nil, nil
 	}
 
 	// Update each dependent
-	updated := 0
+	var results []string
 	for _, depDir := range dependents {
+		depName := filepath.Base(depDir)
 		if err := g.updateModule(depDir, modulePath, version); err != nil {
-			// Log warning?
-			// We can't log easily without polluting output.
-			// Maybe accumulate errors?
+			results = append(results, fmt.Sprintf("❌ Failed to update %s: %v", depName, err))
 			continue
 		}
-		updated++
+		results = append(results, fmt.Sprintf("✅ Updated %s", depName))
 	}
 
-	return updated, nil
+	return results, nil
 }
 
 // findDependentModules searches for modules that have modulePath as dependency

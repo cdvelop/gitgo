@@ -14,7 +14,12 @@ type ConsoleFilter struct {
 
 func NewConsoleFilter(quiet bool, output func(string)) *ConsoleFilter {
 	if output == nil {
-		output = func(s string) { fmt.Printf("%s\n", s) }
+		// In quiet mode with nil callback, use a no-op function
+		if quiet {
+			output = func(s string) {}
+		} else {
+			output = func(s string) { fmt.Printf("%s\n", s) }
+		}
 	}
 	return &ConsoleFilter{
 		quiet:  quiet,

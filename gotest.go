@@ -52,7 +52,7 @@ func (g *Go) Test(verbose bool) (string, error) {
 	// Go Vet (async)
 	go func() {
 		defer wg1.Done()
-		vetOutput, vetErr = RunCommand("go", "vet", "./...")
+		vetOutput, vetErr = RunCommand("go", "vet", ".")
 	}()
 
 	// Check for test files (async)
@@ -62,20 +62,12 @@ func (g *Go) Test(verbose bool) (string, error) {
 		hasTestFiles = len(out) > 0
 	}()
 
-	// Check for WASM test files or build tags (async)
+	// Check for WASM test files by build tags ONLY (async)
 	go func() {
 		defer wg1.Done()
-		// Check file names
-		wasmTestOut, _ := RunCommand("sh", "-c", "find . -type f \\( -name '*Wasm*_test.go' -o -name '*wasm*_test.go' \\) 2>/dev/null")
-		if len(wasmTestOut) > 0 {
-			enableWasmTests = true
-			if !quiet {
-				g.log("Detected WASM test files by name...")
-			}
-			return
-		}
-		// Check for wasm build tag in test files
-		buildTagOut, _ := RunCommand("sh", "-c", "grep -l '^//go:build.*wasm' *_test.go 2>/dev/null || true")
+		// Only check for wasm build tag in test files - don't rely on file names
+		// as files like "wasm_exec_test.go" are normal tests about WASM, not WASM tests
+		buildTagOut, _ := RunShellCommand("grep -l '^//go:build.*wasm' *_test.go 2>/dev/null || true")
 		if len(buildTagOut) > 0 {
 			enableWasmTests = true
 			if !quiet {
@@ -89,7 +81,9 @@ func (g *Go) Test(verbose bool) (string, error) {
 	// Process vet results
 	if vetErr != nil {
 		// Check if it's just "no packages" error (WASM-only projects)
-		if strings.Contains(vetOutput, "matched no packages") || strings.Contains(vetOutput, "no packages to vet") {
+		if strings.Contains(vetOutput, "matched no packages") ||
+			strings.Contains(vetOutput, "no packages to vet") ||
+			strings.Contains(vetOutput, "build constraints exclude all Go files") {
 			vetStatus = "OK"
 			addMsg(true, "vet ok")
 		} else {
@@ -141,15 +135,15 @@ func (g *Go) Test(verbose bool) (string, error) {
 		// Tests with race detection (async)
 		go func() {
 			defer wg2.Done()
-			testCmd := exec.Command("go", "test", "-race", "./...")
+			testCmd := exec.Command("go", "test", "-race", ".")
 
-			testFilter := NewConsoleFilter(quiet, func(s string) {
-				if quiet {
-					fmt.Println(s)
-				} else {
+			var testFilterCallback func(string)
+			if !quiet {
+				testFilterCallback = func(s string) {
 					fmt.Println(s)
 				}
-			})
+			}
+			testFilter := NewConsoleFilter(quiet, testFilterCallback)
 
 			testBuffer := &bytes.Buffer{}
 
@@ -176,7 +170,7 @@ func (g *Go) Test(verbose bool) (string, error) {
 			if !quiet {
 				g.log("Calculating coverage...")
 			}
-			coverageOutput, coverageErr = RunCommand("go", "test", "-cover", "./...")
+			coverageOutput, coverageErr = RunCommand("go", "test", "-cover", ".")
 		}()
 
 		wg2.Wait()
@@ -234,17 +228,25 @@ func (g *Go) Test(verbose bool) (string, error) {
 				addMsg(false, "WASM tests skipped (setup failed)")
 			} else {
 				execArg := "wasmbrowsertest -quiet"
+				testArgs := []string{"test", "-exec", execArg, "-cover", "."}
 				if !quiet {
 					execArg = "wasmbrowsertest"
+					testArgs = []string{"test", "-exec", execArg, "-v", "-cover", "."}
 				}
 
-				wasmCmd := exec.Command("go", "test", "-exec", execArg, "-v", "-cover", ".")
+				wasmCmd := exec.Command("go", testArgs...)
 				wasmCmd.Env = os.Environ()
 				wasmCmd.Env = append(wasmCmd.Env, "GOOS=js", "GOARCH=wasm")
 
 				var wasmOut bytes.Buffer
 
-				wasmFilter := NewConsoleFilter(quiet, nil)
+				var wasmFilterCallback func(string)
+				if !quiet {
+					wasmFilterCallback = func(s string) {
+						fmt.Println(s)
+					}
+				}
+				wasmFilter := NewConsoleFilter(quiet, wasmFilterCallback)
 				wasmPipe := &paramWriter{
 					write: func(p []byte) (n int, err error) {
 						s := string(p)

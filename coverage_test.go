@@ -185,12 +185,12 @@ func TestGoUpdateDependentsNoSearchPath(t *testing.T) {
 	goHandler, _ := NewGo(git)
 
 	// It should not fail, just find nothing
-	updated, err := goHandler.updateDependents("github.com/test/repo", "v0.0.1", "")
+	results, err := goHandler.updateDependents("github.com/test/repo", "v0.0.1", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated != 0 {
-		t.Errorf("Expected 0 updated, got %d", updated)
+	if len(results) != 0 {
+		t.Errorf("Expected 0 results, got %d", len(results))
 	}
 }
 

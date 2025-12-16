@@ -108,13 +108,14 @@ func (g *Go) Push(message, tag string, skipTests, skipRace bool, searchPath stri
 	}
 
 	// 6. Update dependent modules
-	updated, err := g.updateDependents(modulePath, latestTag, searchPath)
+	// 6. Update dependent modules
+	updateResults, err := g.updateDependents(modulePath, latestTag, searchPath)
 	if err != nil {
-		summary = append(summary, fmt.Sprintf("Warning: failed to update dependents: %v", err))
+		summary = append(summary, fmt.Sprintf("Warning: failed to scan dependents: %v", err))
 		// Not fatal error
 	}
-	if updated > 0 {
-		summary = append(summary, fmt.Sprintf("✅ Updated modules: %d", updated))
+	if len(updateResults) > 0 {
+		summary = append(summary, updateResults...)
 	}
 
 	// 7. Execute backup (asynchronous, non-blocking)
