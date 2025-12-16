@@ -8,7 +8,7 @@ Complete Go development automation: project init, testing, versioning, updates, 
 ## Commands
 
 - **[gonew](docs/GONEW.md)** - Initialize new Go projects
-- **[gotest](docs/GOTEST.md)** - Run tests, vet, race detection, and coverage
+- **[gotest](docs/GOTEST.md)** - Run tests, vet, race detection, coverage and badges
 - **[push](docs/PUSH.md)** - Git add, commit, tag, and push
 - **[gopush](docs/GOPUSH.md)** - Complete workflow: test + push + update dependents
 - **[devbackup](docs/DEVBACKUP.md)** - Configure and execute automated backups
