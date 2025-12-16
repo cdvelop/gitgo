@@ -107,9 +107,11 @@ func (g *Go) Test(verbose bool) (string, error) {
 			}
 
 			if len(filteredLines) > 0 {
-				fmt.Println("go vet failed:")
-				for _, l := range filteredLines {
-					fmt.Println(l)
+				if !quiet {
+					g.log("go vet failed:")
+					for _, l := range filteredLines {
+						g.log(l)
+					}
 				}
 				addMsg(false, "vet issues found")
 			} else {
@@ -225,8 +227,10 @@ func (g *Go) Test(verbose bool) (string, error) {
 				g.log("Running WASM tests...")
 			}
 
-			if err := installWasmBrowserTest(); err != nil {
-				fmt.Printf("⚠️  wasmbrowsertest setup failed: %v\n", err)
+			if err := g.installWasmBrowserTest(quiet); err != nil {
+				if !quiet {
+					g.log("⚠️  wasmbrowsertest setup failed:", err)
+				}
 				addMsg(false, "WASM tests skipped (setup failed)")
 			} else {
 				execArg := "wasmbrowsertest -quiet"
@@ -348,26 +352,14 @@ func calculateAverageCoverage(output string) string {
 	return fmt.Sprintf("%.0f", total/float64(count))
 }
 
-func installWasmBrowserTest() error {
+func (g *Go) installWasmBrowserTest(quiet bool) error {
 	if _, err := RunCommandSilent("which", "wasmbrowsertest"); err == nil {
 		return nil
 	}
-	fmt.Println("Installing wasmbrowsertest from tinywasm fork...")
-
-	tmpDir, err := os.MkdirTemp("", "wasmbrowsertest-install")
-	if err != nil {
-		return err
+	if !quiet {
+		g.log("Installing wasmbrowsertest from tinywasm fork...")
 	}
-	defer os.RemoveAll(tmpDir)
-
-	fmt.Println("Cloning repository...")
-	_, err = RunCommand("git", "clone", "--depth", "1", "https://github.com/tinywasm/wasmbrowsertest.git", tmpDir)
-	if err != nil {
-		return fmt.Errorf("git clone failed: %w", err)
-	}
-
-	fmt.Println("Building and installing...")
-	_, err = RunCommand("go", "install", ".")
+	_, err := RunCommand("go", "install", "github.com/tinywasm/wasmbrowsertest@latest")
 	if err != nil {
 		return fmt.Errorf("go install failed: %w", err)
 	}
