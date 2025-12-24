@@ -38,3 +38,10 @@ Tag warning: tag v1.0.1 already exists, ✅ Pushed ok
 
 - `0` - Success
 - `1` - Git operation failed
+
+## Note: Special characters
+
+Use **single quotes** for messages with backticks or `$`:
+```bash
+push 'feat: Add `afterLine` parameter'
+```

@@ -67,3 +67,18 @@ gopush "refactor: api" --search-path "../projects"
 
 - `0` - Success
 - `1` - Tests failed, git operation failed, or verification failed
+
+## Note: Special characters in commit messages
+
+When your commit message contains backticks (`` ` ``), `$`, or other shell special characters, use **single quotes** to prevent shell interpretation:
+
+```bash
+# ❌ Backticks will fail (shell tries to execute as commands)
+gopush "feat: Add `afterLine` parameter"
+
+# ✅ Use single quotes
+gopush 'feat: Add `afterLine` parameter'
+
+# ✅ Or escape backticks
+gopush "feat: Add \`afterLine\` parameter"
+```
