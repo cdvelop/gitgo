@@ -128,7 +128,7 @@ func (g *Go) Test(verbose bool) (string, error) {
 		var testErr error
 		var testOutput string
 
-		testCmd := exec.Command("go", "test", "-race", "-cover", ".")
+		testCmd := exec.Command("go", "test", "-race", "-cover", "-count=1", ".")
 
 		testBuffer := &bytes.Buffer{}
 
