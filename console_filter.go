@@ -106,16 +106,9 @@ func (cf *ConsoleFilter) addLine(line string) {
 		return
 	}
 
-	// Skip informational t.Log messages (indented .go: without error keywords)
-	if trimmed != line && strings.Contains(trimmed, ".go:") {
-		lower := strings.ToLower(line) // Use full line, not trimmed
-		if !strings.Contains(lower, "fail") &&
-			!strings.Contains(lower, "error") &&
-			!strings.Contains(lower, "panic") &&
-			!strings.Contains(lower, "race") {
-			return
-		}
-	}
+	// NOTE: We no longer filter indented .go: lines here because they may contain
+	// test error messages. The removePassingTestLogs mechanism handles cleanup
+	// for passing tests, so these lines will only remain for failing tests.
 
 	// Skip function calls with memory addresses like TestNilPointer(0xc0000a6b60)
 	if strings.Contains(line, "(0x") && !strings.Contains(line, ".go:") {

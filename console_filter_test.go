@@ -142,3 +142,37 @@ func TestConsoleFilter_FilterNoise(t *testing.T) {
 		t.Errorf("Expected test output to not be filtered, got: %v", output)
 	}
 }
+
+// TestConsoleFilter_ErrorMessageWithoutKeywords reproduces the bug where
+// error messages without keywords (fail/error/panic/race) are incorrectly filtered.
+// Example: "time_test.go:45: got unexpected value" is filtered because it doesn't
+// contain "fail" or "error" etc.
+func TestConsoleFilter_ErrorMessageWithoutKeywords(t *testing.T) {
+	var output []string
+	record := func(s string) {
+		output = append(output, s)
+	}
+
+	cf := NewConsoleFilter(true, record)
+
+	// Error message WITHOUT keywords like "fail", "error", "panic", "race"
+	cf.Add("=== RUN   TestFormatTimeWithNumericString")
+	cf.Add("    time_test.go:45: got unexpected value 123")
+	cf.Add("--- FAIL: TestFormatTimeWithNumericString (0.00s)")
+	cf.Add("FAIL")
+	cf.Add("FAIL\tgithub.com/tinywasm/time\t0.015s")
+	cf.Flush()
+
+	// The error message SHOULD be shown even without keywords
+	foundError := false
+	for _, line := range output {
+		if strings.Contains(line, "got unexpected value") {
+			foundError = true
+			break
+		}
+	}
+
+	if !foundError {
+		t.Errorf("BUG REPRODUCED: Error message without keywords is filtered out, got: %v", output)
+	}
+}

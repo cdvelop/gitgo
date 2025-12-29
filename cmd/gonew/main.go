@@ -117,36 +117,15 @@ Examples:
 		os.Exit(1)
 	}
 
-	// We can use NewGitHub, but it might fail if gh not installed.
-	// If local-only is set, maybe we don't care?
-	// But spec says "NewGitHub verifies gh CLI availability".
-	// And "Remote unavailable ... Create local-only".
-	// So we should try creating it, if it fails, we note it.
-
-	github, err := devflow.NewGitHub()
-	if err != nil {
-		// If gh not available, we can still proceed if local-only is requested?
-		// Or we can create a dummy GitHub handler that always returns error or just skip it?
-		// But NewGoNew requires *GitHub.
-		// Let's proceed, but maybe signal that github is broken?
-		// Actually, if NewGitHub fails, it means `gh` is not installed.
-		// In that case, we should force local-only?
-		if !*localOnlyFlag {
-			// If user didn't ask for local-only, but we can't use gh, we warn and force local-only?
-			// Spec: "Remote unavailable (network, gh CLI issues): Create local-only with helpful message"
-			// But that's usually during execution.
-			// Here we are at init.
-			// We can pass a nil GitHub handler? GoNew struct has *GitHub.
-			// Let's pass nil and handle nil in GoNew methods?
-			// Or modify GoNew to accept nil?
-			// Let's modify GoNew to handle nil github or just ignore the error here and let GoNew handle it?
-			// But NewGitHub returns nil struct on error.
-			// Let's allow passing nil to NewGoNew and handle it inside.
-			github = nil // Explicitly nil
-			if !*localOnlyFlag {
-				fmt.Println("⚠️  gh CLI not available. Defaulting to local-only mode.")
-				*localOnlyFlag = true
-			}
+	// Only initialize GitHub handler if we might need remote operations
+	var github *devflow.GitHub
+	if !*localOnlyFlag {
+		var err error
+		github, err = devflow.NewGitHub()
+		if err != nil {
+			// If gh not available, warn and force local-only
+			fmt.Println("⚠️  gh CLI not available. Defaulting to local-only mode.")
+			*localOnlyFlag = true
 		}
 	}
 
