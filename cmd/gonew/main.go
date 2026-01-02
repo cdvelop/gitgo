@@ -117,11 +117,14 @@ Examples:
 		os.Exit(1)
 	}
 
+	// Logger for all operations
+	log := func(args ...any) { fmt.Println(args...) }
+
 	// Only initialize GitHub handler if we might need remote operations
 	var github *devflow.GitHub
 	if !*localOnlyFlag {
 		var err error
-		github, err = devflow.NewGitHub()
+		github, err = devflow.NewGitHub(log)
 		if err != nil {
 			// If gh not available, warn and force local-only
 			fmt.Println("⚠️  gh CLI not available. Defaulting to local-only mode.")
@@ -170,7 +173,9 @@ func handleAddRemote(args []string, visibility, owner string) {
 		os.Exit(1)
 	}
 
-	github, err := devflow.NewGitHub()
+	log := func(args ...any) { fmt.Println(args...) }
+
+	github, err := devflow.NewGitHub(log)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: GitHub CLI (gh) is required for add-remote: %v\n", err)
 		os.Exit(1)

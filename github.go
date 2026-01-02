@@ -10,11 +10,15 @@ type GitHub struct {
 	log func(...any)
 }
 
-// NewGitHub creates handler and verifies gh CLI availability
-// If not authenticated, it initiates OAuth Device Flow automatically
-func NewGitHub() (*GitHub, error) {
+// NewGitHub creates handler and verifies gh CLI availability.
+// logFn is used to display authentication messages during Device Flow.
+// If not authenticated, it initiates OAuth Device Flow automatically.
+func NewGitHub(logFn func(...any)) (*GitHub, error) {
+	if logFn == nil {
+		logFn = func(...any) {}
+	}
 	gh := &GitHub{
-		log: func(...any) {},
+		log: logFn,
 	}
 
 	// Verify gh installation
