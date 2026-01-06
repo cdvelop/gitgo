@@ -61,10 +61,10 @@ func (g *Go) Test() (string, error) {
 	// Check for WASM test files by build tags ONLY (async)
 	go func() {
 		defer wg1.Done()
-		// Only check for positive wasm build tag in test files
-		// Exclude !wasm (negated tags) which means "NOT for WASM"
-		buildTagOut, _ := RunShellCommand("grep -l '^//go:build.*wasm' *_test.go 2>/dev/null | xargs grep -l '^//go:build' 2>/dev/null | xargs grep -L '!wasm' 2>/dev/null || true")
-		if len(buildTagOut) > 0 {
+		// Check for wasm build tag in test files, excluding negated tags (!wasm)
+		// First find files with wasm tag, then exclude those with !wasm
+		buildTagOut, _ := RunShellCommand("grep -l '^//go:build.*wasm' *_test.go 2>/dev/null | while read f; do grep -q '!wasm' \"$f\" || echo \"$f\"; done")
+		if strings.TrimSpace(buildTagOut) != "" {
 			enableWasmTests = true
 		}
 	}()

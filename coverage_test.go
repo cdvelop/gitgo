@@ -10,9 +10,7 @@ func TestGitGenerateNextTagErrors(t *testing.T) {
 	dir, cleanup := testCreateGitRepo()
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 
@@ -47,9 +45,7 @@ func TestGitPushWithUpstreamLogic(t *testing.T) {
 	dir, cleanup := testCreateGitRepo()
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 
@@ -93,9 +89,7 @@ func TestGitCreateTagExists(t *testing.T) {
 	dir, cleanup := testCreateGitRepo()
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 
@@ -124,9 +118,7 @@ func TestGoPushFlags(t *testing.T) {
 	dir, cleanup := testCreateGoModule("github.com/test/repo")
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	// Init git
 	exec.Command("git", "init").Run()
@@ -177,9 +169,7 @@ func TestGoUpdateDependentsNoSearchPath(t *testing.T) {
 	dir, cleanup := testCreateGoModule("github.com/test/repo")
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 	goHandler, _ := NewGo(git)
@@ -198,9 +188,7 @@ func TestGoFailures(t *testing.T) {
 	dir, cleanup := testCreateGoModule("github.com/test/repo")
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 	goHandler, _ := NewGo(git)
@@ -227,9 +215,7 @@ func TestGoUpdateModuleFail(t *testing.T) {
 	dir, cleanup := testCreateGoModule("github.com/test/repo")
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 	goHandler, _ := NewGo(git)
@@ -247,9 +233,7 @@ func TestGoPushFailTest(t *testing.T) {
 	dir, cleanup := testCreateGoModule("github.com/test/repo")
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 	goHandler, _ := NewGo(git)
@@ -282,9 +266,7 @@ func TestGitAddError(t *testing.T) {
 	dir, cleanup := testCreateGitRepo()
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 
@@ -301,9 +283,7 @@ func TestGitPushCommitFailure(t *testing.T) {
 	dir, cleanup := testCreateGitRepo()
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 

@@ -10,9 +10,7 @@ import (
 func TestGoGetModulePath(t *testing.T) {
 	dir, cleanup := testCreateGoModule("github.com/test/repo")
 	defer cleanup()
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 	goHandler, _ := NewGo(git)
@@ -30,9 +28,7 @@ func TestGoGetModulePath(t *testing.T) {
 func TestGoModVerify(t *testing.T) {
 	dir, cleanup := testCreateGoModule("github.com/test/repo")
 	defer cleanup()
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 	goHandler, _ := NewGo(git)
@@ -54,9 +50,7 @@ func TestExample(t *testing.T) {}
 `
 	os.WriteFile(dir+"/main_test.go", []byte(testContent), 0644)
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 	goHandler, _ := NewGo(git)
@@ -148,9 +142,7 @@ func TestGoPush(t *testing.T) {
 	dir, cleanup := testCreateGoModule("github.com/test/repo")
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	// Init git in the module dir
 	exec.Command("git", "init").Run()

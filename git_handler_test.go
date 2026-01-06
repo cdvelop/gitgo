@@ -11,9 +11,7 @@ func TestGitHasChanges(t *testing.T) {
 	dir, cleanup := testCreateGitRepo()
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 
@@ -38,9 +36,7 @@ func TestGitGenerateNextTag(t *testing.T) {
 	dir, cleanup := testCreateGitRepo()
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 
@@ -77,9 +73,7 @@ func TestGitCommit(t *testing.T) {
 	dir, cleanup := testCreateGitRepo()
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
 
@@ -131,9 +125,7 @@ func TestGitPush(t *testing.T) {
 	dir, cleanup := testCreateGitRepo()
 	defer cleanup()
 
-	oldDir, _ := os.Getwd()
-	os.Chdir(dir)
-	defer os.Chdir(oldDir)
+	defer testChdir(t, dir)()
 
 	exec.Command("git", "remote", "add", "origin", remoteDir).Run()
 
