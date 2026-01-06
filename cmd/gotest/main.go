@@ -3,18 +3,40 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/tinywasm/devflow"
 )
 
 func main() {
-	fs := flag.NewFlagSet("gotest", flag.ExitOnError)
-	verboseFlag := fs.Bool("v", false, "Enable verbose output")
+	fs := flag.NewFlagSet("gotest", flag.ContinueOnError)
+	fs.SetOutput(io.Discard) // Silence default flag errors
+
+	showHelp := func() {
+		fmt.Println("Usage: gotest")
+		fmt.Println("Automated flow. No arguments needed.")
+	}
 
 	err := fs.Parse(os.Args[1:])
 	if err != nil {
-		fmt.Println("Error parsing flags:", err)
+		if err == flag.ErrHelp {
+			showHelp()
+			os.Exit(0)
+		}
+		// Minimal error for flags like -v
+		fmt.Println("gotest: no arguments needed.")
+		os.Exit(1)
+	}
+
+	// Check handling for help args
+	if len(fs.Args()) > 0 {
+		arg := fs.Args()[0]
+		if arg == "?" || arg == "help" {
+			showHelp()
+			os.Exit(0)
+		}
+		fmt.Printf("gotest: unexpected %q. No arguments needed.\n", arg)
 		os.Exit(1)
 	}
 
@@ -29,14 +51,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Set logging if verbose
-	if *verboseFlag {
-		goHandler.SetLog(func(args ...any) {
-			fmt.Println(args...)
-		})
-	}
-
-	summary, err := goHandler.Test(*verboseFlag)
+	summary, err := goHandler.Test()
 	if err != nil {
 		fmt.Println("Tests failed:", err)
 		os.Exit(1)

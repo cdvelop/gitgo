@@ -11,27 +11,19 @@ go install github.com/tinywasm/devflow/cmd/gotest@latest
 ## Usage
 
 ```bash
-gotest           # Quiet mode (default)
-gotest -v        # Verbose mode
+gotest
 ```
 
 ## What it does
 
 1. Runs `go vet ./...`
-2. Runs `go test ./...`
-3. Runs `go test -race ./...` (stdlib tests only)
-4. Calculates coverage
-5. Auto-detects and runs WASM tests if found (`*Wasm*_test.go`)
-6. Updates README badges
+2. Runs `go test -race -cover ./...` (stdlib tests only)
+3. Calculates coverage
+4. Auto-detects and runs WASM tests if found (`*Wasm*_test.go`)
+5. Updates README badges
 
 ## Output
 
-**Quiet mode (default):**
-```
-✅ vet ok, ✅ tests stdlib ok, ✅ race detection ok, ✅ coverage: 71%
-```
-
-**With WASM tests:**
 ```
 ✅ vet ok, ✅ tests stdlib ok, ✅ race detection ok, ✅ coverage: 71%, ✅ tests wasm ok
 ```

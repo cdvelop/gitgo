@@ -85,7 +85,7 @@ func (g *Go) Push(message, tag string, skipTests, skipRace bool, searchPath stri
 
 	// 2. Run tests (if not skipped)
 	if !skipTests {
-		testSummary, err := g.Test(false) // quiet mode
+		testSummary, err := g.Test() // quiet mode
 		if err != nil {
 			return "", fmt.Errorf("tests failed: %w", err)
 		}

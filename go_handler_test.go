@@ -61,7 +61,7 @@ func TestExample(t *testing.T) {}
 	git, _ := NewGit()
 	goHandler, _ := NewGo(git)
 
-	_, err := goHandler.Test(false) // quiet mode
+	_, err := goHandler.Test() // quiet mode
 	if err != nil {
 		// In test environment, tests might fail, but we check the call works
 		t.Log("Test failed as expected in test environment:", err)

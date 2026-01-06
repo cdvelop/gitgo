@@ -12,15 +12,11 @@ import (
 )
 
 // Test executes the test suite for the project
-func (g *Go) Test(verbose bool) (string, error) {
+func (g *Go) Test() (string, error) {
 	// Detect Module Name
 	moduleName, err := getModuleName(".")
 	if err != nil {
 		return "", fmt.Errorf("error: %v", err)
-	}
-
-	if verbose {
-		g.log("Running tests, race detection, vet and coverage analysis for", moduleName)
 	}
 
 	// Initialize Status
@@ -38,7 +34,7 @@ func (g *Go) Test(verbose bool) (string, error) {
 		msgs = append(msgs, fmt.Sprintf("%s %s", symbol, msg))
 	}
 
-	quiet := !verbose
+	quiet := true
 
 	// Parallel Phase 1: Vet + Test file detection
 	var wg1 sync.WaitGroup
@@ -70,9 +66,6 @@ func (g *Go) Test(verbose bool) (string, error) {
 		buildTagOut, _ := RunShellCommand("grep -l '^//go:build.*wasm' *_test.go 2>/dev/null || true")
 		if len(buildTagOut) > 0 {
 			enableWasmTests = true
-			if !quiet {
-				g.log("Detected WASM build tags...")
-			}
 		}
 	}()
 
@@ -101,12 +94,6 @@ func (g *Go) Test(verbose bool) (string, error) {
 			}
 
 			if len(filteredLines) > 0 {
-				if !quiet {
-					g.log("go vet failed:")
-					for _, l := range filteredLines {
-						g.log(l)
-					}
-				}
 				addMsg(false, "vet issues found")
 			} else {
 				vetStatus = "OK"
@@ -119,10 +106,6 @@ func (g *Go) Test(verbose bool) (string, error) {
 	}
 
 	if hasTestFiles {
-		if !quiet {
-			g.log("Running Go tests with race detection and coverage...")
-		}
-
 		// Run tests with race detection AND coverage in a single command
 		// Running them in parallel causes cache conflicts
 		var testErr error
@@ -132,13 +115,7 @@ func (g *Go) Test(verbose bool) (string, error) {
 
 		testBuffer := &bytes.Buffer{}
 
-		var testFilterCallback func(string)
-		if !quiet {
-			testFilterCallback = func(s string) {
-				g.log(s)
-			}
-		}
-		testFilter := NewConsoleFilter(quiet, testFilterCallback)
+		testFilter := NewConsoleFilter(quiet, nil)
 
 		testPipe := &paramWriter{
 			write: func(p []byte) (n int, err error) {
@@ -194,22 +171,15 @@ func (g *Go) Test(verbose bool) (string, error) {
 
 		// WASM Tests
 		if enableWasmTests {
-			if !quiet {
-				g.log("Running WASM tests...")
-			}
 
-			if err := g.installWasmBrowserTest(quiet); err != nil {
-				if !quiet {
-					g.log("⚠️  wasmbrowsertest setup failed:", err)
-				}
+			if err := g.installWasmBrowserTest(); err != nil {
+
 				addMsg(false, "WASM tests skipped (setup failed)")
 			} else {
 				execArg := "wasmbrowsertest -quiet"
 				testArgs := []string{"test", "-exec", execArg, "-cover", "."}
-				if !quiet {
-					execArg = "wasmbrowsertest"
-					testArgs = []string{"test", "-exec", execArg, "-v", "-cover", "."}
-				}
+				execArg = "wasmbrowsertest"
+				testArgs = []string{"test", "-exec", execArg, "-v", "-cover", "."}
 
 				wasmCmd := exec.Command("go", testArgs...)
 				wasmCmd.Env = os.Environ()
@@ -218,11 +188,7 @@ func (g *Go) Test(verbose bool) (string, error) {
 				var wasmOut bytes.Buffer
 
 				var wasmFilterCallback func(string)
-				if !quiet {
-					wasmFilterCallback = func(s string) {
-						g.log(s)
-					}
-				}
+
 				wasmFilter := NewConsoleFilter(quiet, wasmFilterCallback)
 				wasmPipe := &paramWriter{
 					write: func(p []byte) (n int, err error) {
@@ -269,9 +235,7 @@ func (g *Go) Test(verbose bool) (string, error) {
 	}
 
 	// Badges
-	if !quiet {
-		g.log("Updating badges...")
-	}
+
 	licenseType := "MIT"
 	if checkFileExists("LICENSE") {
 		// naive check
@@ -281,23 +245,10 @@ func (g *Go) Test(verbose bool) (string, error) {
 	bh := NewBadges()
 	bh.SetLog(g.log)
 	if err := bh.updateBadges("README.md", licenseType, goVer, testStatus, coveragePercent, raceStatus, vetStatus, quiet); err != nil {
-		if !quiet {
-			g.log("Error updating badges:", err)
-		}
+
 	}
 
-	// Final Summary
-	allPassed := testStatus == "Passing" && raceStatus == "Clean" && vetStatus == "OK"
-
-	if quiet && allPassed {
-		return strings.Join(msgs, ", "), nil
-	} else {
-		if quiet {
-			return strings.Join(msgs, ", "), nil
-		} else {
-			return strings.Join(msgs, "\n"), nil
-		}
-	}
+	return strings.Join(msgs, ", "), nil
 }
 
 type paramWriter struct {
@@ -335,13 +286,11 @@ func calculateAverageCoverage(output string) string {
 	return fmt.Sprintf("%.0f", total/float64(count))
 }
 
-func (g *Go) installWasmBrowserTest(quiet bool) error {
+func (g *Go) installWasmBrowserTest() error {
 	if _, err := RunCommandSilent("which", "wasmbrowsertest"); err == nil {
 		return nil
 	}
-	if !quiet {
-		g.log("Installing wasmbrowsertest from tinywasm fork...")
-	}
+
 	_, err := RunCommand("go", "install", "github.com/tinywasm/wasmbrowsertest@latest")
 	if err != nil {
 		return fmt.Errorf("go install failed: %w", err)
