@@ -120,16 +120,12 @@ Examples:
 	// Logger for all operations
 	log := func(args ...any) { fmt.Println(args...) }
 
-	// Only initialize GitHub handler if we might need remote operations
-	var github *devflow.GitHub
+	// Use Future for GitHub initialization
+	var githubFuture *devflow.Future
 	if !*localOnlyFlag {
-		var err error
-		github, err = devflow.NewGitHub(log)
-		if err != nil {
-			// If gh not available, warn and force local-only
-			fmt.Println("⚠️  gh CLI not available. Defaulting to local-only mode.")
-			*localOnlyFlag = true
-		}
+		githubFuture = devflow.NewFuture(func() (any, error) {
+			return devflow.NewGitHub(log)
+		})
 	}
 
 	goHandler, err := devflow.NewGo(git)
@@ -138,7 +134,7 @@ Examples:
 		os.Exit(1)
 	}
 
-	orchestrator := devflow.NewGoNew(git, github, goHandler)
+	orchestrator := devflow.NewGoNew(git, githubFuture, goHandler)
 
 	// Create project
 	opts := devflow.NewProjectOptions{
@@ -175,11 +171,9 @@ func handleAddRemote(args []string, visibility, owner string) {
 
 	log := func(args ...any) { fmt.Println(args...) }
 
-	github, err := devflow.NewGitHub(log)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: GitHub CLI (gh) is required for add-remote: %v\n", err)
-		os.Exit(1)
-	}
+	githubFuture := devflow.NewFuture(func() (any, error) {
+		return devflow.NewGitHub(log)
+	})
 
 	goHandler, err := devflow.NewGo(git)
 	if err != nil {
@@ -187,7 +181,7 @@ func handleAddRemote(args []string, visibility, owner string) {
 		os.Exit(1)
 	}
 
-	orchestrator := devflow.NewGoNew(git, github, goHandler)
+	orchestrator := devflow.NewGoNew(git, githubFuture, goHandler)
 
 	summary, err := orchestrator.AddRemote(projectPath, visibility, owner)
 	if err != nil {

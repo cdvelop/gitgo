@@ -10,7 +10,7 @@ import (
 // GoNew orchestrator
 type GoNew struct {
 	git    *Git
-	github *GitHub
+	github *Future
 	goH    *Go
 	log    func(...any)
 }
@@ -27,7 +27,7 @@ type NewProjectOptions struct {
 }
 
 // NewGoNew creates orchestrator (all handlers must be initialized)
-func NewGoNew(git *Git, github *GitHub, goHandler *Go) *GoNew {
+func NewGoNew(git *Git, github *Future, goHandler *Go) *GoNew {
 	return &GoNew{
 		git:    git,
 		github: github,
@@ -44,7 +44,10 @@ func (gn *GoNew) SetLog(fn func(...any)) {
 			gn.git.SetLog(fn)
 		}
 		if gn.github != nil {
-			gn.github.SetLog(fn)
+			// If already ready, update its log
+			if gh, _ := gn.github.result.(*GitHub); gh != nil {
+				gh.SetLog(fn)
+			}
 		}
 		if gn.goH != nil {
 			gn.goH.SetLog(fn)
@@ -112,8 +115,13 @@ func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 		ghUser = opts.Owner
 	} else if gn.github != nil {
 		// Auto-detect from gh CLI
-		var err error
-		ghUser, err = gn.github.GetCurrentUser()
+		res, err := gn.github.Get()
+		if err != nil {
+			return "", err
+		}
+		gh := res.(*GitHub)
+
+		ghUser, err = gh.GetCurrentUser()
 		if err != nil && !opts.LocalOnly {
 			// Fallback to git config if gh fails
 			gitUser := strings.ReplaceAll(strings.ToLower(userName), " ", "")
@@ -129,16 +137,21 @@ func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 	// We'll create the empty repo first, then add remote after local setup
 	if !opts.LocalOnly {
 		// Check if repo exists on GitHub
-		var err error
+		res, err := gn.github.Get()
+		if err != nil {
+			return "", err
+		}
+		gh := res.(*GitHub)
+
 		if ghUser == "" {
-			ghUser, err = gn.github.GetCurrentUser()
+			ghUser, err = gh.GetCurrentUser()
 		}
 		if err != nil {
 			// Fallback to local only
 			gn.log("GitHub unavailable:", err)
-			resultSummary = fmt.Sprintf("⚠️ Created: %s [local only] v0.0.1 - %s", opts.Name, gn.github.GetHelpfulErrorMessage(err))
+			resultSummary = fmt.Sprintf("⚠️ Created: %s [local only] v0.0.1 - %s", opts.Name, gh.GetHelpfulErrorMessage(err))
 		} else {
-			exists, err := gn.github.RepoExists(ghUser, opts.Name)
+			exists, err := gh.RepoExists(ghUser, opts.Name)
 			if err == nil && exists {
 				return "", fmt.Errorf("repository %s/%s already exists on GitHub", ghUser, opts.Name)
 			} else if err != nil {
@@ -147,7 +160,7 @@ func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 				resultSummary = fmt.Sprintf("⚠️ Created: %s [local only] v0.0.1 - gh unavailable", opts.Name)
 			} else {
 				// Create empty remote repo
-				if err := gn.github.CreateRepo(ghUser, opts.Name, opts.Description, opts.Visibility); err != nil {
+				if err := gh.CreateRepo(ghUser, opts.Name, opts.Description, opts.Visibility); err != nil {
 					gn.log("Failed to create remote:", err)
 					resultSummary = fmt.Sprintf("⚠️ Created: %s [local only] v0.0.1 - failed to create remote", opts.Name)
 				} else {
@@ -302,14 +315,25 @@ func (gn *GoNew) AddRemote(projectPath, visibility, owner string) (string, error
 	if owner != "" {
 		ghUser = owner
 	} else {
-		var err error
-		ghUser, err = gn.github.GetCurrentUser()
+		res, err := gn.github.Get()
+		if err != nil {
+			return "", err
+		}
+		gh := res.(*GitHub)
+
+		ghUser, err = gh.GetCurrentUser()
 		if err != nil {
 			return "", fmt.Errorf("GitHub unavailable: %w", err)
 		}
 	}
 
-	exists, err := gn.github.RepoExists(ghUser, repoName)
+	res, err := gn.github.Get()
+	if err != nil {
+		return "", err
+	}
+	gh := res.(*GitHub)
+
+	exists, err := gh.RepoExists(ghUser, repoName)
 	if err == nil && exists {
 		return "", fmt.Errorf("repository %s/%s already exists on GitHub", ghUser, repoName)
 	}
@@ -318,7 +342,7 @@ func (gn *GoNew) AddRemote(projectPath, visibility, owner string) (string, error
 	if visibility == "" {
 		visibility = "public"
 	}
-	if err := gn.github.CreateRepo(ghUser, repoName, description, visibility); err != nil {
+	if err := gh.CreateRepo(ghUser, repoName, description, visibility); err != nil {
 		return "", fmt.Errorf("failed to create remote: %w", err)
 	}
 
