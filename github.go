@@ -82,6 +82,16 @@ func (gh *GitHub) CreateRepo(owner, name, description, visibility string) error 
 	return err
 }
 
+// DeleteRepo deletes a repository on GitHub.
+// WARNING: This permanently deletes the repository and cannot be undone.
+// Use with caution, primarily for test cleanup.
+func (gh *GitHub) DeleteRepo(owner, name string) error {
+	repoName := fmt.Sprintf("%s/%s", owner, name)
+	// --yes confirms deletion without prompting
+	_, err := RunCommand("gh", "repo", "delete", repoName, "--yes")
+	return err
+}
+
 // IsNetworkError checks if an error is likely a network error
 func (gh *GitHub) IsNetworkError(err error) bool {
 	if err == nil {
