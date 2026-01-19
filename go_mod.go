@@ -188,16 +188,31 @@ func (g *Go) updateDependents(modulePath, version, searchPath string) ([]string,
 		return nil, nil
 	}
 
-	// Update each dependent
-	var results []string
+	// Update each dependent asynchronously using Futures
+	var futures []*Future
 	for _, depDir := range dependents {
-		depName := filepath.Base(depDir)
-		result, err := g.UpdateDependentModule(depDir, modulePath, version)
-		if err != nil {
-			results = append(results, fmt.Sprintf("❌ %s: %v", depName, err))
-			continue
+		// Capture variables for closure
+		d, m, v := depDir, modulePath, version
+
+		// Create a future for each update
+		f := NewFuture(func() (any, error) {
+			depName := filepath.Base(d)
+			result, err := g.UpdateDependentModule(d, m, v)
+			if err != nil {
+				return fmt.Sprintf("❌ %s: %v", depName, err), nil // Return error as string result for summary
+			}
+			return fmt.Sprintf("✅ %s: %s", depName, result), nil
+		})
+		futures = append(futures, f)
+	}
+
+	// Wait for all futures to complete
+	var results []string
+	for _, f := range futures {
+		res, _ := f.Get() // Error handling is done inside the future returning formatted strings
+		if strRes, ok := res.(string); ok {
+			results = append(results, strRes)
 		}
-		results = append(results, fmt.Sprintf("✅ %s: %s", depName, result))
 	}
 
 	return results, nil

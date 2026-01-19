@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // RunCommand executes a shell command
@@ -55,4 +56,28 @@ func RunShellCommandAsync(command string) error {
 	}
 
 	return cmd.Start()
+}
+
+// RunCommandWithRetry executes a command with retries
+// It waits for 'delay' duration between retries
+func RunCommandWithRetry(name string, args []string, maxRetries int, delay time.Duration) (string, error) {
+	var output string
+	var err error
+
+	for i := 0; i < maxRetries; i++ {
+		output, err = RunCommand(name, args...)
+		if err == nil {
+			return output, nil
+		}
+
+		// If this was the last attempt, return the error
+		if i == maxRetries-1 {
+			break
+		}
+
+		// Wait before retrying
+		time.Sleep(delay)
+	}
+
+	return output, fmt.Errorf("command %s failed after %d attempts: %w", name, maxRetries, err)
 }

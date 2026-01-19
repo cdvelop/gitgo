@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // Go handler for Go operations
@@ -178,10 +179,12 @@ func (g *Go) UpdateDependentModule(depDir, modulePath, version string) (string, 
 		return "", fmt.Errorf("failed to save go.mod: %w", err)
 	}
 
-	// 4. Run go get
+	// 4. Run go get with retry (3 attempts, 5s delay)
+	// This helps when the module version is not yet available in the proxy
 	target := fmt.Sprintf("%s@%s", modulePath, version)
-	if _, err := RunCommand("go", "get", "-u", target); err != nil {
-		return "", fmt.Errorf("go get failed: %w", err)
+	retryDelay := 5 * time.Second
+	if _, err := RunCommandWithRetry("go", []string{"get", "-u", target}, 3, retryDelay); err != nil {
+		return "", fmt.Errorf("go get failed after retries: %w", err)
 	}
 
 	// 5. Run go mod tidy
