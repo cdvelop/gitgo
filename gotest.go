@@ -34,26 +34,18 @@ func (g *Go) Test() (string, error) {
 		msgs = append(msgs, fmt.Sprintf("%s %s", symbol, msg))
 	}
 
-	// Parallel Phase 1: Vet + Test file detection
+	// Parallel Phase 1: Vet + WASM detection
 	var wg1 sync.WaitGroup
 	var vetOutput string
 	var vetErr error
-	var hasTestFiles bool
 	var enableWasmTests bool
 
-	wg1.Add(3)
+	wg1.Add(2)
 
 	// Go Vet (async)
 	go func() {
 		defer wg1.Done()
-		vetOutput, vetErr = RunCommand("go", "vet", ".")
-	}()
-
-	// Check for test files (async)
-	go func() {
-		defer wg1.Done()
-		out, _ := RunCommand("find", ".", "-type", "f", "-name", "*_test.go")
-		hasTestFiles = len(out) > 0
+		vetOutput, vetErr = RunCommand("go", "vet", "./...")
 	}()
 
 	// Check for WASM test files by build tags ONLY (async)
@@ -103,133 +95,124 @@ func (g *Go) Test() (string, error) {
 		addMsg(true, "vet ok")
 	}
 
-	if hasTestFiles {
-		// Run tests with race detection AND coverage in a single command
-		// Running them in parallel causes cache conflicts
-		var testErr error
-		var testOutput string
+	// Run tests with race detection AND coverage in a single command
+	// go test ./... automatically discovers all packages with tests
+	var testErr error
+	var testOutput string
 
-		testCmd := exec.Command("go", "test", "-race", "-cover", "-count=1", ".")
+	testCmd := exec.Command("go", "test", "-race", "-cover", "-count=1", "./...")
 
-		testBuffer := &bytes.Buffer{}
+	testBuffer := &bytes.Buffer{}
 
-		testFilter := NewConsoleFilter(nil)
+	testFilter := NewConsoleFilter(nil)
 
-		testPipe := &paramWriter{
-			write: func(p []byte) (n int, err error) {
-				s := string(p)
-				testBuffer.Write(p)
-				testFilter.Add(s)
-				return len(p), nil
-			},
-		}
+	testPipe := &paramWriter{
+		write: func(p []byte) (n int, err error) {
+			s := string(p)
+			testBuffer.Write(p)
+			testFilter.Add(s)
+			return len(p), nil
+		},
+	}
 
-		testCmd.Stdout = testPipe
-		testCmd.Stderr = testPipe
-		testErr = testCmd.Run()
-		testFilter.Flush()
+	testCmd.Stdout = testPipe
+	testCmd.Stderr = testPipe
+	testErr = testCmd.Run()
+	testFilter.Flush()
 
-		testOutput = testBuffer.String()
+	testOutput = testBuffer.String()
 
-		// Process test results
-		stdTestsRan := false
-		if testErr != nil {
-			// Check if it's a WASM-only package (build constraints exclude all files)
-			if strings.Contains(testOutput, "matched no packages") ||
-				strings.Contains(testOutput, "build constraints exclude all Go files") {
-				testStatus = "Passing"
-				raceStatus = "Clean"
-				// Ensure WASM tests are enabled for WASM-only packages
-				enableWasmTests = true
-				// Ensure WASM tests are enabled for WASM-only packages
-				enableWasmTests = true
-				g.log("WASM-only package detected, skipping stdlib tests...")
-			} else {
-				// Real test failure - ConsoleFilter already filtered the output in quiet mode
-				addMsg(false, fmt.Sprintf("Test errors found in %s", moduleName))
-				testStatus = "Failed"
-				raceStatus = "Detected"
-				stdTestsRan = true
-			}
-		} else {
+	// Process test results
+	stdTestsRan := false
+	if testErr != nil {
+		// Check if it's a WASM-only package (build constraints exclude all files)
+		if strings.Contains(testOutput, "matched no packages") ||
+			strings.Contains(testOutput, "build constraints exclude all Go files") {
 			testStatus = "Passing"
 			raceStatus = "Clean"
-			addMsg(true, "tests stdlib ok")
-			addMsg(true, "race detection ok")
+			// Ensure WASM tests are enabled for WASM-only packages
+			enableWasmTests = true
+			g.log("WASM-only package detected, skipping stdlib tests...")
+		} else {
+			// Real test failure - ConsoleFilter already filtered the output in quiet mode
+			addMsg(false, fmt.Sprintf("Test errors found in %s", moduleName))
+			testStatus = "Failed"
+			raceStatus = "Detected"
 			stdTestsRan = true
 		}
-
-		// Process coverage results (from the same test run)
-		if stdTestsRan {
-			coveragePercent = calculateAverageCoverage(testOutput)
-			if coveragePercent != "0" {
-				addMsg(true, "coverage: "+coveragePercent+"%")
-			}
-		}
-
-		// WASM Tests
-		if enableWasmTests {
-
-			if err := g.installWasmBrowserTest(); err != nil {
-
-				addMsg(false, "WASM tests skipped (setup failed)")
-			} else {
-				execArg := "wasmbrowsertest -quiet"
-				testArgs := []string{"test", "-exec", execArg, "-cover", "."}
-				execArg = "wasmbrowsertest"
-				testArgs = []string{"test", "-exec", execArg, "-v", "-cover", "."}
-
-				wasmCmd := exec.Command("go", testArgs...)
-				wasmCmd.Env = os.Environ()
-				wasmCmd.Env = append(wasmCmd.Env, "GOOS=js", "GOARCH=wasm")
-
-				var wasmOut bytes.Buffer
-
-				var wasmFilterCallback func(string)
-
-				wasmFilter := NewConsoleFilter(wasmFilterCallback)
-				wasmPipe := &paramWriter{
-					write: func(p []byte) (n int, err error) {
-						s := string(p)
-						wasmOut.Write(p)
-						wasmFilter.Add(s)
-						return len(p), nil
-					},
-				}
-
-				wasmCmd.Stdout = wasmPipe
-				wasmCmd.Stderr = wasmPipe
-
-				err := wasmCmd.Run()
-				wasmFilter.Flush()
-
-				wOutput := wasmOut.String()
-
-				if err != nil {
-					// WASM test failure - ConsoleFilter already filtered the output in quiet mode
-					addMsg(false, "tests wasm failed")
-					testStatus = "Failed"
-				} else {
-					addMsg(true, "tests wasm ok")
-					if testStatus != "Failed" {
-						testStatus = "Passing"
-					}
-					wCov := calculateAverageCoverage(wOutput)
-					if wCov != "0" {
-						// Prefer WASM coverage if stdlib had 0% (common in WASM-only packages)
-						if coveragePercent == "0" {
-							coveragePercent = wCov
-							addMsg(true, "coverage: "+coveragePercent+"%")
-						}
-					}
-				}
-			}
-		}
-
 	} else {
-		addMsg(true, fmt.Sprintf("no test files found in %s", moduleName))
 		testStatus = "Passing"
-		coveragePercent = "0"
+		raceStatus = "Clean"
+		addMsg(true, "tests stdlib ok")
+		addMsg(true, "race detection ok")
+		stdTestsRan = true
+	}
+
+	// Process coverage results (from the same test run)
+	if stdTestsRan {
+		coveragePercent = calculateAverageCoverage(testOutput)
+		if coveragePercent != "0" {
+			addMsg(true, "coverage: "+coveragePercent+"%")
+		}
+	}
+
+	// WASM Tests
+	if enableWasmTests {
+
+		if err := g.installWasmBrowserTest(); err != nil {
+
+			addMsg(false, "WASM tests skipped (setup failed)")
+		} else {
+			execArg := "wasmbrowsertest -quiet"
+			testArgs := []string{"test", "-exec", execArg, "-cover", "./..."}
+			execArg = "wasmbrowsertest"
+			testArgs = []string{"test", "-exec", execArg, "-v", "-cover", "./..."}
+
+			wasmCmd := exec.Command("go", testArgs...)
+			wasmCmd.Env = os.Environ()
+			wasmCmd.Env = append(wasmCmd.Env, "GOOS=js", "GOARCH=wasm")
+
+			var wasmOut bytes.Buffer
+
+			var wasmFilterCallback func(string)
+
+			wasmFilter := NewConsoleFilter(wasmFilterCallback)
+			wasmPipe := &paramWriter{
+				write: func(p []byte) (n int, err error) {
+					s := string(p)
+					wasmOut.Write(p)
+					wasmFilter.Add(s)
+					return len(p), nil
+				},
+			}
+
+			wasmCmd.Stdout = wasmPipe
+			wasmCmd.Stderr = wasmPipe
+
+			err := wasmCmd.Run()
+			wasmFilter.Flush()
+
+			wOutput := wasmOut.String()
+
+			if err != nil {
+				// WASM test failure - ConsoleFilter already filtered the output in quiet mode
+				addMsg(false, "tests wasm failed")
+				testStatus = "Failed"
+			} else {
+				addMsg(true, "tests wasm ok")
+				if testStatus != "Failed" {
+					testStatus = "Passing"
+				}
+				wCov := calculateAverageCoverage(wOutput)
+				if wCov != "0" {
+					// Prefer WASM coverage if stdlib had 0% (common in WASM-only packages)
+					if coveragePercent == "0" {
+						coveragePercent = wCov
+						addMsg(true, "coverage: "+coveragePercent+"%")
+					}
+				}
+			}
+		}
 	}
 
 	// Badges

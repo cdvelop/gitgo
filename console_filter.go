@@ -6,10 +6,11 @@ import (
 )
 
 type ConsoleFilter struct {
-	buffer       []string
-	output       func(string) // callback to write output
-	hasDataRace  bool
-	shownRaceMsg bool
+	buffer           []string
+	output           func(string) // callback to write output
+	hasDataRace      bool
+	shownRaceMsg     bool
+	noTestFilesCount int
 }
 
 func NewConsoleFilter(output func(string)) *ConsoleFilter {
@@ -45,6 +46,12 @@ func (cf *ConsoleFilter) addLine(line string) {
 		return // Skip individual warnings
 	}
 
+	// Count packages with no test files
+	if strings.Contains(line, "[no test files]") {
+		cf.noTestFilesCount++
+		return
+	}
+
 	// Skip noise
 	if strings.HasPrefix(line, "go: warning:") ||
 		strings.HasPrefix(line, "#") ||
@@ -54,7 +61,6 @@ func (cf *ConsoleFilter) addLine(line string) {
 		strings.Contains(line, "build constraints exclude all Go files") ||
 		strings.Contains(line, "[setup failed]") ||
 		strings.Contains(line, "no packages to test") ||
-		strings.Contains(line, "[no test files]") ||
 		strings.Contains(line, "(cached)") ||
 		strings.Contains(line, "✅ All tests passed!") ||
 		strings.Contains(line, "All tests passed!") ||
@@ -198,6 +204,16 @@ func (cf *ConsoleFilter) Flush() {
 	if cf.hasDataRace && !cf.shownRaceMsg {
 		cf.output("⚠️  WARNING: DATA RACE detected")
 		cf.shownRaceMsg = true
+	}
+
+	// Show consolidated no-test-files message
+	if cf.noTestFilesCount > 0 {
+		if cf.noTestFilesCount == 1 {
+			cf.output("ℹ️  1 package has no test files")
+		} else {
+			cf.output(fmt.Sprintf("ℹ️  %d packages have no test files", cf.noTestFilesCount))
+		}
+		cf.noTestFilesCount = 0
 	}
 
 	for _, line := range cf.buffer {
