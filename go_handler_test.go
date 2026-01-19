@@ -200,20 +200,37 @@ func TestUpdateDependentModule(t *testing.T) {
 	os.WriteFile(filepath.Join(myappDir, "go.mod"), []byte("module github.com/test/myapp\n\ngo 1.20\n\nrequire github.com/test/mylib v0.0.0\nreplace github.com/test/mylib => ../mylib\n"), 0644)
 
 	// Init git in myapp (needed for Push)
-	testChdir(t, myappDir)()
-	exec.Command("git", "init").Run()
-	exec.Command("git", "config", "user.name", "Test").Run()
-	exec.Command("git", "config", "user.email", "test@test.com").Run()
-	exec.Command("git", "add", ".").Run()
-	exec.Command("git", "commit", "-m", "initial").Run()
+	// We use explicit Dir instead of chdir to avoid confusion and leaking
+	runGit := func(dir string, args ...string) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if err := cmd.Run(); err != nil {
+			t.Logf("git %v in %s failed: %v", args, dir, err)
+		}
+	}
+
+	runGit(myappDir, "init")
+	runGit(myappDir, "config", "user.name", "Test")
+	runGit(myappDir, "config", "user.email", "test@test.com")
+	runGit(myappDir, "add", ".")
+	runGit(myappDir, "commit", "-m", "initial")
 
 	// Setup remote for myapp
 	remoteDir, _ := os.MkdirTemp("", "myapp-remote-")
 	defer os.RemoveAll(remoteDir)
 	exec.Command("git", "init", "--bare", remoteDir).Run()
-	exec.Command("git", "remote", "add", "origin", remoteDir).Run()
+	runGit(myappDir, "remote", "add", "origin", remoteDir)
 
-	testChdir(t, mylibDir)() // back to root of test context or whatever
+	// Switch to mylibDir context for the rest of the test logic if needed,
+	// but the handler below allows specifying paths.
+	// Actually, we don't need to chdir at all if we pass absolute paths or correct relative ones.
+	// But UpdateDependentModule uses chdir internally, so we just need to ensure
+	// we are currently in a "safe" place or the tool handles it.
+	// The test logic below passes myappDir (absolute path from TempDir).
+	// So we can stay in root or chdir to a neutral temp dir.
+
+	neutralDir := t.TempDir()
+	defer testChdir(t, neutralDir)() // Move out of real repo just in case
 
 	git, _ := NewGit()
 	g, _ := NewGo(git)

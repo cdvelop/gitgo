@@ -272,11 +272,13 @@ func TestShouldEnableWasm(t *testing.T) {
 }
 func TestEvaluateTestResults(t *testing.T) {
 	tests := []struct {
-		name        string
-		err         error
-		output      string
-		expected    string
-		expectedRan bool
+		name         string
+		err          error
+		output       string
+		expected     string
+		expectedRan  bool
+		expectedMsgs []string // Messages that MUST be present
+		excludedMsgs []string // Messages that MUST NOT be present (anti-noise regression)
 	}{
 		{
 			name:        "Pure Success",
@@ -284,6 +286,10 @@ func TestEvaluateTestResults(t *testing.T) {
 			output:      "ok  github.com/mod 1.0s",
 			expected:    "Passing",
 			expectedRan: true,
+			expectedMsgs: []string{
+				"✅ tests stdlib ok",
+				"✅ race detection ok",
+			},
 		},
 		{
 			name:        "Real Test Failure",
@@ -291,6 +297,9 @@ func TestEvaluateTestResults(t *testing.T) {
 			output:      "--- FAIL: TestSomething\nFAIL  github.com/mod",
 			expected:    "Failed",
 			expectedRan: true,
+			expectedMsgs: []string{
+				"❌ Test errors found in testmod",
+			},
 		},
 		{
 			name:        "Build Failure",
@@ -298,6 +307,9 @@ func TestEvaluateTestResults(t *testing.T) {
 			output:      "# github.com/mod\n[build failed]",
 			expected:    "Failed",
 			expectedRan: false,
+			expectedMsgs: []string{
+				"❌ Test errors found in testmod",
+			},
 		},
 		{
 			name: "Client Scenario: Partial Success (Native ok, subpackages tag-excluded)",
@@ -314,6 +326,13 @@ func TestEvaluateTestResults(t *testing.T) {
 				"FAIL",
 			expected:    "Passing",
 			expectedRan: true,
+			expectedMsgs: []string{
+				"✅ tests stdlib ok", // Clean message only
+				"✅ race detection ok",
+			},
+			excludedMsgs: []string{
+				"(some subpackages excluded)", // Anti-regression check
+			},
 		},
 		{
 			name:        "WASM-only: Total Exclusion",
@@ -321,17 +340,41 @@ func TestEvaluateTestResults(t *testing.T) {
 			output:      "matched no packages\nbuild constraints exclude all Go files",
 			expected:    "Passing",
 			expectedRan: false,
+			// No messages expected for stdlib in this case, logic handles it upstream or returns empty msgs for this part
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			status, _, ran, _ := evaluateTestResults(tt.err, tt.output, "testmod", nil)
+			status, _, ran, msgs := evaluateTestResults(tt.err, tt.output, "testmod", nil)
 			if status != tt.expected {
 				t.Errorf("Expected status %s, got %s", tt.expected, status)
 			}
 			if ran != tt.expectedRan {
 				t.Errorf("Expected ran %v, got %v", tt.expectedRan, ran)
+			}
+
+			// Verify messages
+			for _, exp := range tt.expectedMsgs {
+				found := false
+				for _, msg := range msgs {
+					if msg == exp {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected message %q not found in %v", exp, msgs)
+				}
+			}
+
+			// Verify exclusions (Anti-noise)
+			for _, exc := range tt.excludedMsgs {
+				for _, msg := range msgs {
+					if strings.Contains(msg, exc) {
+						t.Errorf("Found excluded noise message %q in %v", exc, msgs)
+					}
+				}
 			}
 		})
 	}
