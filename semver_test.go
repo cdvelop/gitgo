@@ -13,9 +13,9 @@ func TestCompareVersions(t *testing.T) {
 		{"1.0.0", "v1.0.0", 0}, // Loose prefix handling
 		{"v2.0", "v1.9.9", 1},
 		{"v1.2", "v1.2.0", 0}, // Partial check (simplified implementation treats missing as 0 effectively in loop or stops)
-		// Actually my implementation loop maxLen limits.
-		// "1.2" parts=["1","2"], "1.2.0" parts=["1","2","0"]
-		// i=2: n1=0 (default int), n2=0. So equal. Correct.
+		{"v0.4.6", "v0.0.51", 1},
+		{"v0.0.51", "v0.4.6", -1},
+		{"v0.4.6", "v0.4.6", 0},
 	}
 
 	for _, tt := range tests {

@@ -141,3 +141,56 @@ func TestGitPush(t *testing.T) {
 		t.Errorf("Expected summary to contain 'Pushed ok', got: %s", summary)
 	}
 }
+
+func TestGitPushRejectsLowerTag(t *testing.T) {
+	dir, cleanup := testCreateGitRepo()
+	defer cleanup()
+	defer testChdir(t, dir)()
+
+	git, _ := NewGit()
+	os.WriteFile("test.txt", []byte("initial"), 0644)
+	git.add()
+	git.commit("initial")
+	git.createTag("v0.4.6")
+
+	// Attempt push with lower tag
+	_, err := git.Push("fix: something", "v0.0.51")
+	if err == nil {
+		t.Fatal("Expected error when pushing lower tag v0.0.51 after v0.4.6, but got nil")
+	}
+
+	expectedErr := "tag v0.0.51 is not greater than latest tag v0.4.6"
+	if !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Expected error containing %q, got %q", expectedErr, err.Error())
+	}
+}
+
+func TestGitPushAcceptsHigherTag(t *testing.T) {
+	// Create bare repo as remote
+	remoteDir, _ := os.MkdirTemp("", "gitgo-remote-accept-")
+	defer os.RemoveAll(remoteDir)
+	exec.Command("git", "init", "--bare", remoteDir).Run()
+
+	dir, cleanup := testCreateGitRepo()
+	defer cleanup()
+	defer testChdir(t, dir)()
+
+	exec.Command("git", "remote", "add", "origin", remoteDir).Run()
+
+	git, _ := NewGit()
+	os.WriteFile("test.txt", []byte("initial"), 0644)
+	git.add()
+	git.commit("initial")
+	git.createTag("v0.4.6")
+
+	os.WriteFile("test.txt", []byte("update"), 0644)
+	git.add()
+	summary, err := git.Push("fix: something", "v0.4.7")
+	if err != nil {
+		t.Fatalf("Push failed for higher tag v0.4.7: %v", err)
+	}
+
+	if !strings.Contains(summary, "v0.4.7") {
+		t.Errorf("Expected summary to contain tag v0.4.7, got: %s", summary)
+	}
+}

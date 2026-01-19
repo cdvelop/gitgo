@@ -78,6 +78,14 @@ func (g *Git) Push(message, tag string) (string, error) {
 		finalTag = generatedTag
 	}
 
+	// Validate tag is greater than latest
+	latestTag, err := g.GetLatestTag()
+	if err == nil && latestTag != "" {
+		if CompareVersions(finalTag, latestTag) <= 0 {
+			return "", fmt.Errorf("tag %s is not greater than latest tag %s", finalTag, latestTag)
+		}
+	}
+
 	// 4. Create tag - if exists, keep incrementing until we find available one
 	maxAttempts := 100 // Prevent infinite loop
 	attempt := 0
