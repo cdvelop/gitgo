@@ -1,6 +1,7 @@
 package devflow
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -265,6 +266,63 @@ func TestShouldEnableWasm(t *testing.T) {
 			result := shouldEnableWasm(tt.nativeOut, tt.wasmOut)
 			if result != tt.expected {
 				t.Errorf("Expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+func TestEvaluateTestResults(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         error
+		output      string
+		expected    string
+		expectedRan bool
+	}{
+		{
+			name:        "Pure Success",
+			err:         nil,
+			output:      "ok  github.com/mod 1.0s",
+			expected:    "Passing",
+			expectedRan: true,
+		},
+		{
+			name:        "Real Test Failure",
+			err:         fmt.Errorf("exit 1"),
+			output:      "--- FAIL: TestSomething\nFAIL  github.com/mod",
+			expected:    "Failed",
+			expectedRan: true,
+		},
+		{
+			name:        "Build Failure",
+			err:         fmt.Errorf("exit 2"),
+			output:      "# github.com/mod\n[build failed]",
+			expected:    "Failed",
+			expectedRan: false,
+		},
+		{
+			name:        "Client Scenario: Partial Success (Native ok, subpackages tag-excluded)",
+			err:         fmt.Errorf("exit 1"),
+			output:      "ok  github.com/client 1.0s\n# benchmark/shared\nbuild constraints exclude all Go files",
+			expected:    "Passing",
+			expectedRan: true,
+		},
+		{
+			name:        "WASM-only: Total Exclusion",
+			err:         fmt.Errorf("exit 1"),
+			output:      "matched no packages\nbuild constraints exclude all Go files",
+			expected:    "Passing",
+			expectedRan: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status, _, ran, _ := evaluateTestResults(tt.err, tt.output, "testmod", nil)
+			if status != tt.expected {
+				t.Errorf("Expected status %s, got %s", tt.expected, status)
+			}
+			if ran != tt.expectedRan {
+				t.Errorf("Expected ran %v, got %v", tt.expectedRan, ran)
 			}
 		})
 	}

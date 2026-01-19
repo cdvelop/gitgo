@@ -130,35 +130,17 @@ func (g *Go) Test() (string, error) {
 	testOutput = testBuffer.String()
 
 	// Process test results
-	// Determine if any stdlib tests actually ran by looking for ok/FAIL markers in output
-	hasStdOk := strings.Contains(testOutput, "\tok\t") || strings.Contains(testOutput, "ok  \t")
-	hasStdFail := strings.Contains(testOutput, "\tFAIL\t") || strings.Contains(testOutput, "FAIL  \t")
-	stdTestsRan := hasStdOk || hasStdFail
+	var stdTestsRan bool
+	testStatus, raceStatus, stdTestsRan, msgs = evaluateTestResults(testErr, testOutput, moduleName, msgs)
 
-	if testErr != nil {
-		// Check if it's strictly a WASM-only module (no std tests ran AND we see exclusions)
+	// If no stdlib tests ran but we see exclusions, consider enabling WASM (if not already enabled)
+	if !stdTestsRan {
 		isExclusionError := strings.Contains(testOutput, "matched no packages") ||
 			strings.Contains(testOutput, "build constraints exclude all Go files")
-
-		if !stdTestsRan && isExclusionError {
-			testStatus = "Passing"
-			raceStatus = "Clean"
-			// Ensure WASM tests are enabled if we literally found no std tests due to tags
+		if isExclusionError {
 			enableWasmTests = true
 			g.log("No stdlib tests matched/run (possibly WASM-only module), skipping stdlib tests...")
-		} else {
-			// Real test failure or partial failure with some tests actually running
-			addMsg(false, fmt.Sprintf("Test errors found in %s", moduleName))
-			testStatus = "Failed"
-			raceStatus = "Detected"
-			// Even if it failed, if some tests ran, coverage is still valid
 		}
-	} else {
-		testStatus = "Passing"
-		raceStatus = "Clean"
-		addMsg(true, "tests stdlib ok")
-		addMsg(true, "race detection ok")
-		stdTestsRan = true
 	}
 
 	// Process coverage results (from the same test run)
@@ -307,6 +289,7 @@ func shouldEnableWasm(nativeOut, wasmOut string) bool {
 	// This means it has a //go:build wasm tag or similar.
 	for f := range wasmFiles {
 		if !nativeFiles[f] {
+			fmt.Printf("WASM unique test file: %s\n", f)
 			return true
 		}
 	}
@@ -319,9 +302,13 @@ func parseGoListFiles(output string) map[string]bool {
 	lines := strings.Split(output, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// fmt.Printf("DEBUG: parse line: %q\n", line)
 		// Legitimate go list lines for this template usually contain '['
 		// but we must skip error messages that might start with "package" or involve "syscall/js"
-		if line == "" || !strings.Contains(line, "[") {
+		if !strings.Contains(line, "[") {
 			continue
 		}
 
@@ -346,5 +333,63 @@ func parseGoListFiles(output string) map[string]bool {
 			fileMap[pkgPath+"/"+f] = true
 		}
 	}
+	// fmt.Printf("DEBUG: Found %d unique test files\n", len(fileMap))
 	return fileMap
+}
+
+// evaluateTestResults analyzes the output of go test and decides the outcome
+// This function is pure and can be easily tested.
+func evaluateTestResults(err error, output, moduleName string, msgs []string) (testStatus, raceStatus string, stdTestsRan bool, newMsgs []string) {
+	testStatus = "Failed"
+	raceStatus = "Detected"
+	newMsgs = msgs
+
+	addMsg := func(ok bool, msg string) {
+		symbol := "✅"
+		if !ok {
+			symbol = "❌"
+		}
+		newMsgs = append(newMsgs, fmt.Sprintf("%s %s", symbol, msg))
+	}
+
+	// Determine if any stdlib tests actually ran by looking for ok/FAIL markers in output
+	// Use more robust matching that handles different spacing/tabs
+	hasStdOk := strings.Contains(output, "ok  ") || strings.Contains(output, "ok\t") || strings.Contains(output, "\tok\t")
+	hasStdFail := strings.Contains(output, "FAIL  ") || strings.Contains(output, "FAIL\t") || strings.Contains(output, "\tFAIL\t")
+	stdTestsRan = hasStdOk || hasStdFail
+
+	if err == nil {
+		testStatus = "Passing"
+		raceStatus = "Clean"
+		addMsg(true, "tests stdlib ok")
+		addMsg(true, "race detection ok")
+		stdTestsRan = true
+		return
+	}
+
+	// It failed (exit code != 0). Is it a real test failure or just build constraints?
+	// Check for real test failures: "--- FAIL"
+	hasRealFailures := strings.Contains(output, "--- FAIL") || strings.Contains(output, "\nFAIL\t")
+
+	// Check for build failures: "[build failed]" or similar
+	hasBuildFailures := strings.Contains(output, "[build failed]")
+
+	// Check for exclusion errors
+	isExclusionError := strings.Contains(output, "matched no packages") ||
+		strings.Contains(output, "build constraints exclude all Go files")
+
+	if !hasRealFailures && !hasBuildFailures && isExclusionError {
+		// It's a "Partial Success" or "Exclusion Only"
+		testStatus = "Passing"
+		raceStatus = "Clean"
+		if stdTestsRan {
+			addMsg(true, "tests stdlib ok (some subpackages excluded)")
+			addMsg(true, "race detection ok")
+		}
+	} else {
+		// Real failure
+		addMsg(false, fmt.Sprintf("Test errors found in %s", moduleName))
+	}
+
+	return
 }
