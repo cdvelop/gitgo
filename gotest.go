@@ -51,12 +51,25 @@ func (g *Go) Test() (string, error) {
 	// Check for WASM test files by build tags ONLY (async)
 	go func() {
 		defer wg1.Done()
-		// Check for wasm build tag in test files recursively, excluding negated tags (!wasm)
-		// We use grep -r with include pattern for better performance and accuracy
-		cmd := "grep -rl '^//go:build.*wasm' . --include='*_test.go' 2>/dev/null | while read f; do grep -q '!wasm' \"$f\" || echo \"$f\"; done"
-		buildTagOut, _ := RunShellCommand(cmd)
-		if strings.TrimSpace(buildTagOut) != "" {
-			enableWasmTests = true
+		// Use go list to detect packages with test files for the WASM architecture
+		// This is cross-platform and more accurate than grep.
+		// We check for both internal (.TestGoFiles) and external (.XTestGoFiles) tests.
+		cmd := exec.Command("go", "list", "-f", "{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}", "./...")
+		cmd.Env = os.Environ()
+		cmd.Env = append(cmd.Env, "GOOS=js", "GOARCH=wasm")
+		// We use CombinedOutput or a buffer because go list might fail (exit 1)
+		// if some subpackages have import errors under WASM, but it still prints the list.
+		out, _ := cmd.CombinedOutput()
+		if strings.TrimSpace(string(out)) != "" {
+			// Filter out actual error messages to see if there's any package path
+			lines := strings.Split(string(out), "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if line != "" && !strings.Contains(line, ":") && !strings.Contains(line, " ") {
+					enableWasmTests = true
+					break
+				}
+			}
 		}
 	}()
 
