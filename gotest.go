@@ -48,28 +48,57 @@ func (g *Go) Test() (string, error) {
 		vetOutput, vetErr = RunCommand("go", "vet", "./...")
 	}()
 
-	// Check for WASM test files by build tags ONLY (async)
+	// Check for WASM test files by comparing native vs WASM test file lists (async)
 	go func() {
 		defer wg1.Done()
-		// Use go list to detect packages with test files for the WASM architecture
-		// This is cross-platform and more accurate than grep.
-		// We check for both internal (.TestGoFiles) and external (.XTestGoFiles) tests.
-		cmd := exec.Command("go", "list", "-f", "{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}", "./...")
-		cmd.Env = os.Environ()
-		cmd.Env = append(cmd.Env, "GOOS=js", "GOARCH=wasm")
-		// We use CombinedOutput or a buffer because go list might fail (exit 1)
-		// if some subpackages have import errors under WASM, but it still prints the list.
-		out, _ := cmd.CombinedOutput()
-		if strings.TrimSpace(string(out)) != "" {
-			// Filter out actual error messages to see if there's any package path
+
+		getFiles := func(isWasm bool) map[string]bool {
+			fileMap := make(map[string]bool)
+			cmd := exec.Command("go", "list", "-f", "{{.ImportPath}} {{.TestGoFiles}} {{.XTestGoFiles}}", "./...")
+			if isWasm {
+				cmd.Env = os.Environ()
+				cmd.Env = append(cmd.Env, "GOOS=js", "GOARCH=wasm")
+			}
+			out, _ := cmd.CombinedOutput()
+
 			lines := strings.Split(string(out), "\n")
 			for _, line := range lines {
 				line = strings.TrimSpace(line)
-				if line != "" && !strings.Contains(line, ":") && !strings.Contains(line, " ") {
-					enableWasmTests = true
-					break
+				if line == "" || !strings.Contains(line, "[") {
+					continue
+				}
+				// Extract package path and file list: "path [a_test.go b_test.go] []"
+				parts := strings.SplitN(line, " ", 2)
+				if len(parts) < 2 {
+					continue
+				}
+				pkgPath := parts[0]
+				fileList := parts[1]
+				// Normalize file list and add to map: pkgPath/file
+				fileList = strings.ReplaceAll(fileList, "[", "")
+				fileList = strings.ReplaceAll(fileList, "]", "")
+				files := strings.Fields(fileList)
+				for _, f := range files {
+					fileMap[pkgPath+"/"+f] = true
 				}
 			}
+			return fileMap
+		}
+
+		nativeFiles := getFiles(false)
+		wasmFiles := getFiles(true)
+
+		// 3. Activation condition: at least one test file in WASM that is NOT in Native
+		// This means it has a //go:build wasm tag or similar.
+		for f := range wasmFiles {
+			if !nativeFiles[f] {
+				enableWasmTests = true
+				g.log(fmt.Sprintf("WASM test file detected: %s", f))
+				break
+			}
+		}
+		if !enableWasmTests {
+			g.log("No WASM-specific test files found.")
 		}
 	}()
 
