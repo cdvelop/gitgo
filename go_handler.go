@@ -208,85 +208,41 @@ func (g *Go) UpdateDependentModule(depDir, modulePath, version string) (string, 
 		return "updated (other replaces exist, manual push required)", nil
 	}
 
-	// 7. Push with skipDependents=true, skipBackup=true
+	// 7. Push the dependent module
+	// Save current directory and change to depDir for the push
+	originalDir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	if err := os.Chdir(depDir); err != nil {
+		return "", fmt.Errorf("failed to change to dependent directory: %w", err)
+	}
+
+	// Ensure we restore the original directory
+	defer func() {
+		os.Chdir(originalDir)
+	}()
+
+	// Create new handlers for the dependent directory
 	git, err := NewGit()
 	if err != nil {
 		return "", fmt.Errorf("git init failed: %w", err)
 	}
-	// We need a Go handler grounded in the DEPENDENT directory for the recursive push?
-	// NewGo uses "." as rootDir by default.
-	// If we want the dependent handler to work correctly, we must ensure it operates on depDir.
+
 	depHandler, err := NewGo(git)
 	if err != nil {
 		return "", fmt.Errorf("go handler init failed: %w", err)
 	}
-	// CRITICAL: Set the root dir of the new handler to depDir so it doesn't assume CWD
-	depHandler.SetRootDir(depDir)
-	// AND verify methods of Go struct use rootDir.
-	// Most methods in Go struct rely on CWD or take paths.
-	// 'Push' method calls 'g.verify()', 'g.Test()', 'g.git.Push()'.
-	// 'g.git.Push()' likely uses CWD. Git handler needs to be aware of directory too.
-	// Currently NewGit() doesn't seemingly take a path?
-	// Let's check NewGit implementation if possible...
-	// Assuming Git struct handles CWD or we need to pass it.
-	// Wait, if we can't chdir, we rely on the tools to accept a working directory.
 
-	// If the existing Git/Go structs rely on os.Chdir(depDir) to function, we have a bigger refactor.
-	// However, looking at the code I replaced:
-	// It did `defer os.Chdir(originalDir)` and `os.Chdir(depDir)`.
-	// So `depHandler.Push` *was* running inside `depDir`.
-	// If I remove `os.Chdir`, `depHandler.Push` will run in the ROOT directory.
-	// THIS IS A PROBLEM for the recursive Push if `Push` internal methods don't support explicit dirs.
+	// Push with skipDependents=true and skipBackup=true to avoid infinite recursion
+	commitMsg := fmt.Sprintf("deps: update %s to %s", filepath.Base(modulePath), version)
+	_, err = depHandler.Push(commitMsg, "", true, true, true, true, "")
+	if err != nil {
+		return "", fmt.Errorf("push failed: %w", err)
+	}
 
-	// FIX: We can wrap the recursive Push in a brief chdir IF AND ONLY IF we lock? NO, parallel execution.
-	// We cannot Chdir. We must ensure `depHandler` and its `git` use `depDir`.
-	// If `Git` struct and `Go` `Push` method don't support explicit directories, we have to use `RunCommandInDir` inside them too.
-	// But that's a huge refactor.
-
-	// ALTERNATIVE: Use a Mutex to serialize the "Push" valid only if updates are fast and Pushes are slow? No.
-	// The problem is `UpdateDependentModule` calls `Push` recursively.
-
-	// Let's look at `Go.Push`. It calls `g.git.Push`.
-	// Does `Git` support running in a dir?
-	// If not, we found a deeper architectural issue for concurrency.
-	// BUT, for updating `go.mod` (Get current version, go get, go mod tidy), we are safe with `RunCommandInDir`.
-	// The recursive `Push` is the sticky part.
-
-	// For now, let's implement the safely isolated update parts.
-	// To handle the recursive push safely without chdir:
-	// I will instantiate the git/go handlers but I might have to defer the actual PUSH or
-	// Accept that `Push` might need to be refactored to support `Dir`.
-
-	// However, typically `git` commands accept `-C <dir>`.
-	// If `g.git.Push` doesn't support it, we can't easily fix it here without refactoring `Git`.
-
-	// Temporary workaround for the recursion:
-	// If we can't run Push safely in parallel because of Chdir dependency in `Push` implementation,
-	// We might have to return a "Result" that says "Ready to Push" and execute pushes sequentially?
-	// Or Refactor `Git` to take a rootDir.
-
-	// Let's assume for this step I fix the `go get` / `go mod tidy` race which was the explicit crash.
-	// The recursive `Push` might fail if `Git` invocations use CWD.
-	// I will check `git_handler.go` in next step if verification fails.
-
-	// However, notice the original code:
-	// depHandler, err := NewGo(git)
-	// ...
-	// depHandler.Push(...)
-
-	// If I don't chdir, depHandler acts on CWD.
-	// I will modify `Push` logic to try to use relative paths if possible, but standard `go` tools and `git` rely heavily on CWD.
-
-	// CORRECT APPROACH FOR NOW:
-	// 1. Fix the `go get` / `tidy` race (proven failure point).
-	// 2. See if `Push` fails. If so, create a plan to refactor `Git`/`Go` structs to respect `rootDir`.
-	// (Actually `Go` struct has `rootDir` field! I saw `SetRootDir`. `NewGo` sets it to `.`.
-	// I initialized `depHandler` and I can call `depHandler.SetRootDir(depDir)`.
-	// I just need to verify if `Go` methods use `g.rootDir`.
-
-	// Let's Apply the fix for `go get` and `tidy` first, as clearly requested.
-
-	return fmt.Sprintf("updated to %s (Push pending refactor for safety)", version), nil
+	return fmt.Sprintf("updated to %s", version), nil
 }
 
 // GetCurrentVersion returns the current version of a dependency in a module
