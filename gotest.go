@@ -93,12 +93,12 @@ func (g *Go) Test() (string, error) {
 		for f := range wasmFiles {
 			if !nativeFiles[f] {
 				enableWasmTests = true
-				g.log(fmt.Sprintf("WASM test file detected: %s", f))
+				fmt.Printf("WASM test file detected: %s\n", f)
 				break
 			}
 		}
 		if !enableWasmTests {
-			g.log("No WASM-specific test files found.")
+			// fmt.Println("No WASM-specific test files found.")
 		}
 	}()
 
