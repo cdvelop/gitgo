@@ -19,6 +19,12 @@ func (g *Go) Test() (string, error) {
 		return "", fmt.Errorf("error: %v", err)
 	}
 
+	// Check cache - if code hasn't changed since last successful test, return cached result
+	cache := NewTestCache()
+	if cache.IsCacheValid() {
+		return cache.GetCachedMessage(), nil
+	}
+
 	// Initialize Status
 	testStatus := "Failed"
 	coveragePercent := "0"
@@ -228,6 +234,12 @@ func (g *Go) Test() (string, error) {
 	summary := strings.Join(msgs, ", ")
 	if testStatus == "Failed" || vetStatus == "Issues" {
 		return summary, fmt.Errorf("%s", summary)
+	}
+
+	// Save test cache on success (for gopush optimization)
+	cache = NewTestCache()
+	if err := cache.SaveCache(summary); err != nil {
+		g.log("Warning: failed to save test cache:", err)
 	}
 
 	return summary, nil
