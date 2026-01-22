@@ -1,11 +1,13 @@
 package devflow
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGoGetModulePath(t *testing.T) {
@@ -13,8 +15,8 @@ func TestGoGetModulePath(t *testing.T) {
 	defer cleanup()
 	defer testChdir(t, dir)()
 
-	git, _ := NewGit()
-	goHandler, _ := NewGo(git)
+	mockGit := &MockGitClient{}
+	goHandler, _ := NewGo(mockGit)
 
 	path, err := goHandler.getModulePath()
 	if err != nil {
@@ -31,8 +33,8 @@ func TestGoModVerify(t *testing.T) {
 	defer cleanup()
 	defer testChdir(t, dir)()
 
-	git, _ := NewGit()
-	goHandler, _ := NewGo(git)
+	mockGit := &MockGitClient{}
+	goHandler, _ := NewGo(mockGit)
 
 	err := goHandler.verify()
 	if err != nil {
@@ -53,8 +55,8 @@ func TestExample(t *testing.T) {}
 
 	defer testChdir(t, dir)()
 
-	git, _ := NewGit()
-	goHandler, _ := NewGo(git)
+	mockGit := &MockGitClient{}
+	goHandler, _ := NewGo(mockGit)
 
 	_, err := goHandler.Test() // quiet mode
 	if err != nil {
@@ -89,8 +91,8 @@ require github.com/test/main v0.0.1
 	os.MkdirAll(indepDir, 0755)
 	os.WriteFile(indepDir+"/go.mod", []byte("module github.com/test/indep\n\ngo 1.20\n"), 0644)
 
-	git, _ := NewGit()
-	goHandler, _ := NewGo(git)
+	mockGit := &MockGitClient{}
+	goHandler, _ := NewGo(mockGit)
 
 	// Search dependents
 	dependents, err := goHandler.findDependentModules("github.com/test/main", tmpDir)
@@ -119,8 +121,8 @@ require github.com/tinywasm/devflow v0.0.1
 `
 	os.WriteFile(gomodPath, []byte(content), 0644)
 
-	git, _ := NewGit()
-	goHandler, _ := NewGo(git)
+	mockGit := &MockGitClient{}
+	goHandler, _ := NewGo(mockGit)
 
 	// Should find the dependency
 	if !goHandler.hasDependency(gomodPath, "github.com/tinywasm/devflow") {
@@ -134,45 +136,46 @@ require github.com/tinywasm/devflow v0.0.1
 }
 
 func TestGoPush(t *testing.T) {
-	// Create bare repo as remote
-	remoteDir, _ := os.MkdirTemp("", "gitgo-remote-")
-	defer os.RemoveAll(remoteDir)
-	exec.Command("git", "init", "--bare", remoteDir).Run()
+	// Use MockGitClient to decouple from real git and avoid remote access issues in tests
+	mockGit := &MockGitClient{
+		latestTag: "v0.0.0",
+		log:       func(args ...any) {},
+	}
 
-	// Create local repo and go module
+	// We need to create a dummy go module context because Go.Push reads go.mod
 	dir, cleanup := testCreateGoModule("github.com/test/repo")
 	defer cleanup()
-
 	defer testChdir(t, dir)()
 
-	// Init git in the module dir
-	exec.Command("git", "init").Run()
-	exec.Command("git", "config", "user.name", "Test").Run()
-	exec.Command("git", "config", "user.email", "test@test.com").Run()
-	exec.Command("git", "remote", "add", "origin", remoteDir).Run()
+	goHandler, err := NewGo(mockGit)
+	if err != nil {
+		t.Fatalf("NewGo failed: %v", err)
+	}
 
-	git, _ := NewGit()
-	goHandler, _ := NewGo(git)
-
-	// Create test file so tests pass (although we skip them here for speed/reliability in this test)
-	// But let's run them to verify full flow
+	// Create test file so tests pass (Go.Push runs tests by default)
+	// But actually, Go.Push runs tests using `go test`.
+	// Since we are mocking Git, we might still fail on `go test` if we don't have valid go files?
+	// The original test created main_test.go. Let's keep that.
 	testContent := `package main
 import "testing"
 func TestExample(t *testing.T) {}
 `
 	os.WriteFile("main_test.go", []byte(testContent), 0644)
 
-	summary, err := goHandler.Push("test update", "v0.0.1", false, true, false, false, "")
+	// We need to ensure Go.verify() passes. It runs `go mod verify`.
+	// Make sure go.mod is valid (testCreateGoModule does this).
+
+	// Run Push
+	// We skip dependents (true) and backup (true/false) to focus on core flow
+	summary, err := goHandler.Push("test update", "v0.0.1", false, true, true, true, "")
 	if err != nil {
 		t.Fatalf("Go Push failed: %v", err)
 	}
 
-	// Verify summary contains expected elements from new format
-	if !strings.Contains(summary, "Tag: v0.0.1") {
-		t.Errorf("Expected summary to contain 'Tag: v0.0.1', got: %s", summary)
-	}
-	if !strings.Contains(summary, "Pushed ok") {
-		t.Errorf("Expected summary to contain 'Pushed ok', got: %s", summary)
+	// Verify summary contains expected elements
+	// Mock returns "Mock push ok"
+	if !strings.Contains(summary, "Mock push ok") {
+		t.Errorf("Expected summary to contain 'Mock push ok', got: %s", summary)
 	}
 	if !strings.Contains(summary, "vet ok") {
 		t.Errorf("Expected summary to contain 'vet ok', got: %s", summary)
@@ -232,8 +235,12 @@ func TestUpdateDependentModule(t *testing.T) {
 	neutralDir := t.TempDir()
 	defer testChdir(t, neutralDir)() // Move out of real repo just in case
 
-	git, _ := NewGit()
-	g, _ := NewGo(git)
+	defer testChdir(t, neutralDir)() // Move out of real repo just in case
+
+	mockGit := &MockGitClient{}
+	g, _ := NewGo(mockGit)
+	// Optimize test speed by disabling retries
+	g.SetRetryConfig(time.Millisecond, 1)
 
 	// This will fail in real life because "go get github.com/test/mylib@v0.0.1" won't find the module
 	// So we'll mock the RunCommand to accept "go get" and "go mod tidy"
@@ -253,5 +260,63 @@ func TestUpdateDependentModule(t *testing.T) {
 	gomodContent, _ := os.ReadFile(filepath.Join(myappDir, "go.mod"))
 	if strings.Contains(string(gomodContent), "replace github.com/test/mylib") {
 		t.Error("replace directive should have been removed even if go get failed later")
+	}
+}
+
+// MockGitClient for testing
+type MockGitClient struct {
+	checkAccessErr error
+	pushErr        error
+	latestTag      string
+	log            func(...any)
+}
+
+func (m *MockGitClient) CheckRemoteAccess() error {
+	return m.checkAccessErr
+}
+
+func (m *MockGitClient) Push(message, tag string) (string, error) {
+	if m.checkAccessErr != nil {
+		return "", m.checkAccessErr
+	}
+	if m.pushErr != nil {
+		return "", m.pushErr
+	}
+	return "Mock push ok", nil
+}
+
+func (m *MockGitClient) GetLatestTag() (string, error) {
+	return m.latestTag, nil
+}
+
+func (m *MockGitClient) SetLog(fn func(...any)) {
+	m.log = fn
+}
+
+func TestGoPush_RemoteAccessFailure(t *testing.T) {
+	// Isolate execution in a temp directory to avoid recursive testing of the current project
+	dir, cleanup := testCreateGoModule("github.com/test/repo")
+	defer cleanup()
+	defer testChdir(t, dir)()
+
+	mockGit := &MockGitClient{
+		checkAccessErr: fmt.Errorf("❌ Network error"),
+		log:            func(args ...any) {},
+	}
+
+	goHandler, _ := NewGo(mockGit)
+
+	// Attempt push
+	// Skip tests (true), skip race (true), skip dependents (true), skip backup (true), no search path
+	// We want to hit the git.Push() call where CheckRemoteAccess happens, without running real tests
+	_, err := goHandler.Push("msg", "tag", true, true, true, true, "")
+
+	// Should fail with the mock error
+	if err == nil {
+		t.Fatal("Expected error due to remote access failure, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "Network error") {
+		t.Errorf("Expected error to contain 'Network error', got: %v", err)
 	}
 }

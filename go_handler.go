@@ -12,10 +12,12 @@ import (
 
 // Go handler for Go operations
 type Go struct {
-	rootDir string
-	git     *Git
-	log     func(...any)
-	backup  *DevBackup
+	rootDir       string
+	git           GitClient // Interface for better testing
+	log           func(...any)
+	backup        *DevBackup
+	retryDelay    time.Duration
+	retryAttempts int
 }
 
 // GoVersion reads the Go version from the go.mod file in the current directory.
@@ -36,18 +38,26 @@ func (g *Go) GoVersion() (string, error) {
 }
 
 // NewGo creates a new Go handler and verifies Go installation
-func NewGo(gitHandler *Git) (*Go, error) {
+func NewGo(gitHandler GitClient) (*Go, error) {
 	// Verify go installation
 	if _, err := RunCommandSilent("go", "version"); err != nil {
 		return nil, fmt.Errorf("go is not installed or not in PATH: %w", err)
 	}
 
 	return &Go{
-		rootDir: ".",
-		git:     gitHandler,
-		backup:  NewDevBackup(),
-		log:     func(...any) {}, // default no-op
+		rootDir:       ".",
+		git:           gitHandler,
+		backup:        NewDevBackup(),
+		log:           func(...any) {}, // default no-op
+		retryDelay:    5 * time.Second,
+		retryAttempts: 3,
 	}, nil
+}
+
+// SetRetryConfig sets the retry configuration for network operations
+func (g *Go) SetRetryConfig(delay time.Duration, attempts int) {
+	g.retryDelay = delay
+	g.retryAttempts = attempts
 }
 
 // SetRootDir sets the root directory for Go operations
@@ -184,10 +194,9 @@ func (g *Go) UpdateDependentModule(depDir, modulePath, version string) (string, 
 
 	// 4.1 Run go get WITHOUT -u using explicit directory context
 	target := fmt.Sprintf("%s@%s", modulePath, version)
-	retryDelay := 5 * time.Second
 
 	// Note: We use RunCommandWithRetryInDir here
-	if _, err := RunCommandWithRetryInDir(depDir, "go", []string{"get", target}, 3, retryDelay); err != nil {
+	if _, err := RunCommandWithRetryInDir(depDir, "go", []string{"get", target}, g.retryAttempts, g.retryDelay); err != nil {
 		return "", fmt.Errorf("go get failed after retries: %w", err)
 	}
 

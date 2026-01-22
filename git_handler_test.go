@@ -127,7 +127,7 @@ func TestGitPush(t *testing.T) {
 
 	defer testChdir(t, dir)()
 
-	exec.Command("git", "remote", "add", "origin", remoteDir).Run()
+	exec.Command("git", "remote", "add", "origin", "file://"+remoteDir).Run()
 
 	git, _ := NewGit()
 	os.WriteFile("README.md", []byte("# test"), 0644)
@@ -148,6 +148,13 @@ func TestGitPushRejectsLowerTag(t *testing.T) {
 	defer testChdir(t, dir)()
 
 	git, _ := NewGit()
+
+	// Setup dummy remote for CheckRemoteAccess
+	remoteDir, _ := os.MkdirTemp("", "gitgo-remote-reject-")
+	defer os.RemoveAll(remoteDir)
+	exec.Command("git", "init", "--bare", remoteDir).Run()
+	exec.Command("git", "remote", "add", "origin", "file://"+remoteDir).Run()
+
 	os.WriteFile("test.txt", []byte("initial"), 0644)
 	git.add()
 	git.commit("initial")
@@ -175,7 +182,7 @@ func TestGitPushAcceptsHigherTag(t *testing.T) {
 	defer cleanup()
 	defer testChdir(t, dir)()
 
-	exec.Command("git", "remote", "add", "origin", remoteDir).Run()
+	exec.Command("git", "remote", "add", "origin", "file://"+remoteDir).Run()
 
 	git, _ := NewGit()
 	os.WriteFile("test.txt", []byte("initial"), 0644)
@@ -192,5 +199,158 @@ func TestGitPushAcceptsHigherTag(t *testing.T) {
 
 	if !strings.Contains(summary, "v0.4.7") {
 		t.Errorf("Expected summary to contain tag v0.4.7, got: %s", summary)
+	}
+}
+
+func TestGitGenerateNextTagErrors(t *testing.T) {
+	dir, cleanup := testCreateGitRepo()
+	defer cleanup()
+
+	defer testChdir(t, dir)()
+
+	git, _ := NewGit()
+
+	// Test with invalid tag format
+	// Force a tag with invalid format
+	exec.Command("git", "commit", "--allow-empty", "-m", "init").Run()
+	exec.Command("git", "tag", "invalid-tag").Run()
+
+	tag, err := git.GenerateNextTag()
+	// It might return error or default?
+	// Code says: if parts < 3 return error "invalid tag format"
+	if err == nil {
+		t.Errorf("Expected error for invalid tag format, got %s", tag)
+	}
+
+	// Test with non-integer patch version
+	exec.Command("git", "tag", "-d", "invalid-tag").Run()
+	exec.Command("git", "tag", "v1.0.abc").Run()
+
+	_, err = git.GenerateNextTag()
+	if err == nil {
+		t.Error("Expected error for non-integer patch version")
+	}
+}
+
+func TestGitPushWithUpstreamLogic(t *testing.T) {
+	// This requires a remote
+	remoteDir, _ := os.MkdirTemp("", "gitgo-remote-upstream-")
+	defer os.RemoveAll(remoteDir)
+	exec.Command("git", "init", "--bare", remoteDir).Run()
+
+	dir, cleanup := testCreateGitRepo()
+	defer cleanup()
+
+	defer testChdir(t, dir)()
+
+	git, _ := NewGit()
+
+	// Add remote
+	exec.Command("git", "remote", "add", "origin", "file://"+remoteDir).Run()
+
+	// Create commit
+	os.WriteFile("test.txt", []byte("content"), 0644)
+	git.add()
+	git.commit("initial")
+
+	// Create tag locally first!
+	git.createTag("v0.0.1")
+
+	// Test hasUpstream (should be false)
+	has, err := git.hasUpstream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if has {
+		t.Error("Should not have upstream yet")
+	}
+
+	// Test pushWithTags (should set upstream)
+	err = git.pushWithTags("v0.0.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Now should have upstream
+	has, err = git.hasUpstream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has {
+		t.Error("Should have upstream now")
+	}
+}
+
+func TestGitCreateTagExists(t *testing.T) {
+	dir, cleanup := testCreateGitRepo()
+	defer cleanup()
+
+	defer testChdir(t, dir)()
+
+	git, _ := NewGit()
+
+	// Initial commit needed for tagging
+	exec.Command("git", "commit", "--allow-empty", "-m", "init").Run()
+
+	created, err := git.createTag("v0.0.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !created {
+		t.Error("Expected tag to be created")
+	}
+
+	// Try to create again
+	created, err = git.createTag("v0.0.1")
+	if err == nil {
+		t.Error("Expected error when creating existing tag")
+	}
+	if created {
+		t.Error("Expected tag not to be created")
+	}
+}
+
+func TestGitAddError(t *testing.T) {
+	// We need to make git add fail.
+	// One way is to lock the index file?
+	dir, cleanup := testCreateGitRepo()
+	defer cleanup()
+
+	defer testChdir(t, dir)()
+
+	git, _ := NewGit()
+
+	// Corrupt .git/index
+	os.WriteFile(".git/index", []byte("garbage"), 0000)
+
+	err := git.add()
+	if err == nil {
+		t.Error("Expected git add to fail with corrupt index")
+	}
+}
+
+func TestGitPushCommitFailure(t *testing.T) {
+	dir, cleanup := testCreateGitRepo()
+	defer cleanup()
+
+	defer testChdir(t, dir)()
+
+	git, _ := NewGit()
+
+	// Stage file
+	os.WriteFile("test.txt", []byte("content"), 0644)
+	git.add()
+
+	// Create failing pre-commit hook
+	os.MkdirAll(".git/hooks", 0755)
+	hook := `#!/bin/sh
+exit 1
+`
+	os.WriteFile(".git/hooks/pre-commit", []byte(hook), 0755)
+
+	// Push should fail at commit step
+	_, err := git.Push("msg", "")
+	if err == nil {
+		t.Error("Expected Push to fail at commit step")
 	}
 }

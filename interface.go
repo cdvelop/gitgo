@@ -11,3 +11,11 @@ type GitHubClient interface {
 	IsNetworkError(err error) bool
 	GetHelpfulErrorMessage(err error) string
 }
+
+// GitClient defines the interface for Git operations.
+type GitClient interface {
+	CheckRemoteAccess() error
+	Push(message, tag string) (string, error)
+	GetLatestTag() (string, error)
+	SetLog(fn func(...any))
+}

@@ -46,6 +46,26 @@ func (g *Git) SetLog(fn func(...any)) {
 	}
 }
 
+// CheckRemoteAccess verifies connectivity to the remote repository
+func (g *Git) CheckRemoteAccess() error {
+	// git ls-remote origin checks access without needing upstream configured
+	_, err := RunCommandSilent("git", "ls-remote", "origin")
+	if err != nil {
+		// Try to provide a helpful error message
+		if strings.Contains(err.Error(), "Authentication failed") || strings.Contains(err.Error(), "Could not read from remote repository") {
+			return fmt.Errorf("❌ Authentication failed. Please check your git credentials or use 'git push' manually to authenticate")
+		}
+		if strings.Contains(err.Error(), "Could not resolve host") {
+			return fmt.Errorf("❌ Network error. Please check your internet connection")
+		}
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "does not exist") {
+			return fmt.Errorf("❌ Remote 'origin' not found. Please add a remote using 'git remote add origin <url>'")
+		}
+		return fmt.Errorf("❌ checking remote access failed: %w", err)
+	}
+	return nil
+}
+
 // Push executes the complete push workflow (add, commit, tag, push)
 // Returns a summary of operations and error if any.
 func (g *Git) Push(message, tag string) (string, error) {
@@ -56,6 +76,11 @@ func (g *Git) Push(message, tag string) (string, error) {
 	message = FormatCommitMessage(message)
 
 	summary := []string{}
+
+	// 0. Verify remote access before doing anything destructive
+	if err := g.CheckRemoteAccess(); err != nil {
+		return "", err
+	}
 
 	// 1. Git add
 	if err := g.add(); err != nil {
