@@ -157,7 +157,7 @@ func (g *Go) Push(message, tag string, skipTests, skipRace, skipDependents, skip
 // It modifies go.mod to require the new version and runs go mod tidy
 func (g *Go) UpdateDependentModule(depDir, modulePath, version string) (string, error) {
 	depName := filepath.Base(depDir)
-	fmt.Printf("\n📦 Processing dependent: %s\n", depName)
+	fmt.Printf("📦 Processing dependent: %s\n", depName)
 
 	// 1-2. Load and modify go.mod
 	// Since NewGoModFile reads from disk, we pass full path

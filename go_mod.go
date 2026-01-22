@@ -200,6 +200,7 @@ func (g *Go) updateDependents(modulePath, version, searchPath string) ([]string,
 		}
 	}
 
+	fmt.Println()
 	return results, nil
 }
 
