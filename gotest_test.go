@@ -109,7 +109,7 @@ FAIL`,
 				"jsvalue_test.go:83: ToJS validation failed for uint16",
 			},
 			excluded: []string{
-				"# github.com/tinywasm/jsvalue",
+				// Note: "# github.com/..." is kept because it shows which package has errors
 				"package github.com/tinywasm/jsvalue: build constraints",
 				"[setup failed]",
 				"coverage:",

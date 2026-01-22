@@ -45,7 +45,7 @@ func (gn *GoNew) SetLog(fn func(...any)) {
 		}
 		if gn.github != nil {
 			// If already ready, update its log
-			if gh, _ := gn.github.result.(*GitHub); gh != nil {
+			if gh, _ := gn.github.result.(GitHubClient); gh != nil {
 				gh.SetLog(fn)
 			}
 		}
@@ -119,7 +119,7 @@ func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		gh := res.(*GitHub)
+		gh := res.(GitHubClient)
 
 		ghUser, err = gh.GetCurrentUser()
 		if err != nil && !opts.LocalOnly {
@@ -141,7 +141,7 @@ func (gn *GoNew) Create(opts NewProjectOptions) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		gh := res.(*GitHub)
+		gh := res.(GitHubClient)
 
 		if ghUser == "" {
 			ghUser, err = gh.GetCurrentUser()
@@ -319,7 +319,7 @@ func (gn *GoNew) AddRemote(projectPath, visibility, owner string) (string, error
 		if err != nil {
 			return "", err
 		}
-		gh := res.(*GitHub)
+		gh := res.(GitHubClient)
 
 		ghUser, err = gh.GetCurrentUser()
 		if err != nil {
@@ -331,7 +331,7 @@ func (gn *GoNew) AddRemote(projectPath, visibility, owner string) (string, error
 	if err != nil {
 		return "", err
 	}
-	gh := res.(*GitHub)
+	gh := res.(GitHubClient)
 
 	exists, err := gh.RepoExists(ghUser, repoName)
 	if err == nil && exists {

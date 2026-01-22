@@ -47,7 +47,7 @@ func (gn *GoNew) GetSteps() []*wizard.Step {
 				// Try GitHub first
 				if gn.github != nil {
 					if res, err := gn.github.Get(); err == nil {
-						if gh, ok := res.(*GitHub); ok {
+						if gh, ok := res.(GitHubClient); ok {
 							if user, err := gh.GetCurrentUser(); err == nil && user != "" {
 								return user
 							}
