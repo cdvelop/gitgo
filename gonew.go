@@ -43,12 +43,8 @@ func (gn *GoNew) SetLog(fn func(...any)) {
 		if gn.git != nil {
 			gn.git.SetLog(fn)
 		}
-		if gn.github != nil {
-			// If already ready, update its log
-			if gh, _ := gn.github.result.(GitHubClient); gh != nil {
-				gh.SetLog(fn)
-			}
-		}
+		// Note: GitHub client uses its own logger set during initialization
+		// We don't update it here to avoid race conditions with the Future
 		if gn.goH != nil {
 			gn.goH.SetLog(fn)
 		}

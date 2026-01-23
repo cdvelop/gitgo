@@ -13,7 +13,7 @@ type GitHub struct {
 // NewGitHub creates handler and verifies gh CLI availability.
 // logFn is used to display authentication messages during Device Flow.
 // If not authenticated, it initiates OAuth Device Flow automatically.
-func NewGitHub(logFn func(...any)) (*GitHub, error) {
+func NewGitHub(logFn func(...any), auth ...GitHubAuthenticator) (*GitHub, error) {
 	if logFn == nil {
 		logFn = func(...any) {}
 	}
@@ -27,9 +27,16 @@ func NewGitHub(logFn func(...any)) (*GitHub, error) {
 	}
 
 	// Ensure authentication - this will initiate Device Flow if needed
-	auth := NewGitHubAuth()
-	auth.SetLog(gh.log)
-	if err := auth.EnsureGitHubAuth(); err != nil {
+	var authenticator GitHubAuthenticator
+	if len(auth) > 0 && auth[0] != nil {
+		// Use injected authenticator (already has TUI logger set)
+		authenticator = auth[0]
+	} else {
+		// Create default authenticator and set logger
+		authenticator = NewGitHubAuth()
+		authenticator.SetLog(gh.log)
+	}
+	if err := authenticator.EnsureGitHubAuth(); err != nil {
 		return nil, fmt.Errorf("github authentication failed: %w", err)
 	}
 

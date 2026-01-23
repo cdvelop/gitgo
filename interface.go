@@ -12,6 +12,19 @@ type GitHubClient interface {
 	GetHelpfulErrorMessage(err error) string
 }
 
+// GitHubAuthenticator defines the interface for GitHub authentication.
+// This allows mocking authentication in tests.
+type GitHubAuthenticator interface {
+	EnsureGitHubAuth() error
+	SetLog(fn func(...any))
+}
+
+// GitHubAuthHandler defines the interface for GitHub auth as a TUI handler.
+type GitHubAuthHandler interface {
+	GitHubAuthenticator
+	Name() string
+}
+
 // GitClient defines the interface for Git operations.
 type GitClient interface {
 	CheckRemoteAccess() error

@@ -39,6 +39,11 @@ func NewGitHubAuth() *GitHubAuth {
 	}
 }
 
+// Name returns the handler name for TUI display.
+func (a *GitHubAuth) Name() string {
+	return "GitHub Auth"
+}
+
 // SetLog sets the logger function
 func (a *GitHubAuth) SetLog(fn func(...any)) {
 	if fn != nil {
@@ -105,15 +110,8 @@ func (a *GitHubAuth) DeviceFlowAuth(kr *Keyring) (string, error) {
 	}
 
 	// Step 2: Open browser for user authorization
-	a.log("")
-	a.log("┌─────────────────────────────────────────────────────────┐")
-	a.log("│  devflow: GitHub authentication required                │")
-	a.log("│                                                         │")
-	a.log(fmt.Sprintf("│  Opening browser... Enter this code: %s          │", codeResp.UserCode))
-	a.log("│                                                         │")
-	a.log("│  Waiting for authorization...                           │")
-	a.log("└─────────────────────────────────────────────────────────┘")
-	a.log("")
+	// Use LogOpen prefix for animated progress in TUI
+	a.log("[...", fmt.Sprintf("Paste this code in browser: %s", codeResp.UserCode))
 
 	if err := a.openBrowser(codeResp.VerificationURI); err != nil {
 		a.log(fmt.Sprintf("Could not open browser. Please go to: %s", codeResp.VerificationURI))
@@ -135,7 +133,8 @@ func (a *GitHubAuth) DeviceFlowAuth(kr *Keyring) (string, error) {
 		a.log(fmt.Sprintf("Warning: could not save token: %v", err))
 	}
 
-	a.log("✅ GitHub authentication successful!")
+	// Use LogClose prefix to stop animation and show success
+	a.log("...]", "GitHub authentication successful!")
 	return token, nil
 }
 
@@ -218,7 +217,7 @@ func (a *GitHubAuth) pollForToken(deviceCode string, interval, expiresIn int) (s
 				return tokenResp.AccessToken, nil
 			}
 		case "authorization_pending":
-			a.log(".")
+			// TUI handles animation, no need to log dots
 			continue
 		case "slow_down":
 			interval += 5
