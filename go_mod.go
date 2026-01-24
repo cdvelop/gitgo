@@ -104,9 +104,9 @@ func (m *GoModHandler) RemoveReplace(modulePath string) bool {
 	return false
 }
 
-// GetLocalReplacePaths returns absolute paths from local replace directives.
+// GetReplacePaths returns absolute paths from local replace directives.
 // Relative paths are resolved starting from the directory containing go.mod.
-func (m *GoModHandler) GetLocalReplacePaths() ([]ReplaceEntry, error) {
+func (m *GoModHandler) GetReplacePaths() ([]ReplaceEntry, error) {
 	// check if loaded
 	if len(m.lines) == 0 {
 		if err := m.load(); err != nil {
@@ -281,7 +281,7 @@ func (g *GoModHandler) NewFileEvent(fileName, extension, filePath, event string)
 	g.lines = strings.Split(string(content), "\n")
 	g.modified = false
 
-	entries, err := g.GetLocalReplacePaths()
+	entries, err := g.GetReplacePaths()
 	if err != nil {
 		g.log("Error getting replace paths:", err)
 		return err

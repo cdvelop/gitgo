@@ -255,13 +255,13 @@ replace github.com/test/lib4 => ../lib4
 		gm := NewGoModHandler()
 		gm.SetRootDir(tmp)
 
-		entries, err := gm.GetLocalReplacePaths()
+		paths, err := gm.GetReplacePaths()
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if len(entries) != 4 {
-			t.Errorf("expected 4 entries, got %d", len(entries))
+		if len(paths) != 4 {
+			t.Errorf("expected 4 entries, got %d", len(paths))
 		}
 
 		expectedPaths := map[string]string{
@@ -271,7 +271,7 @@ replace github.com/test/lib4 => ../lib4
 			"github.com/test/lib4": filepath.Clean(filepath.Join(tmp, "../lib4")),
 		}
 
-		for _, entry := range entries {
+		for _, entry := range paths {
 			expected, exists := expectedPaths[entry.ModulePath]
 			if !exists {
 				t.Errorf("unexpected module path: %s", entry.ModulePath)

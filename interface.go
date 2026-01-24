@@ -59,4 +59,5 @@ type GoModInterface interface {
 	UnobservedFiles() []string
 	SetLog(fn func(...any))
 	SetRootDir(path string)
+	GetReplacePaths() ([]ReplaceEntry, error)
 }
